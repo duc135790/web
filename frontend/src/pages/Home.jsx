@@ -1,293 +1,259 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaBook, FaShoppingCart, FaTruck, FaShieldAlt, FaHeadset, FaStar } from 'react-icons/fa';
+import { 
+  FaBook, FaStar, FaFire, FaChevronLeft, FaChevronRight, FaUndo 
+} from 'react-icons/fa';
+import axios from 'axios';
 
 const Home = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [newProducts, setNewProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const slides = [
     {
-      title: '🔥 GIẢM GIÁ ĐẾN 50%',
-      subtitle: 'Bộ sưu tập Văn học Việt Nam - Đọc để hiểu đời',
-      bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800',
-      link: '/products?category=Văn học'
-    },
-    {
-      title: '⚡ SÁCH KINH TẾ HAY',
+      title: 'SÁCH KINH TẾ HAY',
       subtitle: 'Nâng cao tư duy - Phát triển sự nghiệp',
-      bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+      bg: 'linear-gradient(90deg, #ff7eb3 0%, #ff758c 100%)', 
       image: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=800',
       link: '/products?category=Kinh tế'
     },
     {
-      title: '🎨 SÁCH THIẾU NHI',
-      subtitle: 'Phát triển trí tuệ - Khơi nguồn sáng tạo',
-      bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-      image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800',
-      link: '/products?category=Thiếu nhi'
-    },
-    {
-      title: '🎯 KỸ NĂNG SỐNG',
-      subtitle: 'Thay đổi tư duy - Thành công trong cuộc sống',
-      bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-      image: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=800',
-      link: '/products?category=Kỹ năng sống'
-    },
-    {
-      title: '🌍 NGOẠI NGỮ',
-      subtitle: 'Chinh phục ngôn ngữ - Mở rộng tầm nhìn',
-      bg: 'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-      image: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=800',
-      link: '/products?category=Ngoại ngữ'
+      title: 'GIẢM GIÁ ĐẾN 50%',
+      subtitle: 'Bộ sưu tập Văn học Việt Nam - Đọc để hiểu đời',
+      bg: 'linear-gradient(90deg, #f093fb 0%, #f5576c 100%)',
+      image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800',
+      link: '/products?category=Văn học'
     }
   ];
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 4000);
+    }, 5000);
     return () => clearInterval(interval);
+  }, [slides.length]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const { data } = await axios.get('http://localhost:5000/api/products');
+        setFeaturedProducts(data.slice(0, 4));
+        setNewProducts(data.slice(0, 8));
+        setLoading(false);
+      } catch (error) {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
   }, []);
 
-  const categories = [
-    { name: 'Văn học', icon: '📚', color: 'from-blue-400 to-blue-600' },
-    { name: 'Kinh tế', icon: '💼', color: 'from-green-400 to-green-600' },
-    { name: 'Kỹ năng sống', icon: '🎯', color: 'from-purple-400 to-purple-600' },
-    { name: 'Thiếu nhi', icon: '🎨', color: 'from-pink-400 to-pink-600' },
-    { name: 'Giáo khoa', icon: '📖', color: 'from-orange-400 to-orange-600' },
-    { name: 'Ngoại ngữ', icon: '🌍', color: 'from-indigo-400 to-indigo-600' },
-  ];
+  // --- COMPONENT Ô SẢN PHẨM: SỬA GIỐNG ẢNH 1 ---
+  const ProductCard = ({ product }) => (
+    <div className="bg-white rounded-lg border border-gray-200 p-3 transition-all hover:shadow-md flex flex-col h-full">
+      <div className="relative mb-3 aspect-[3/4] overflow-hidden rounded-md group">
+        <img 
+          src={product.image} 
+          alt={product.name} 
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=Book'}
+        />
+        {/* Nhãn "Mới" xanh lá như ảnh 1 */}
+        <div className="absolute top-2 left-2 bg-[#27ae60] text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm">
+          Mới
+        </div>
+      </div>
 
-  const features = [
-    {
-      icon: <FaTruck className="text-4xl text-blue-600" />,
-      title: 'Giao hàng toàn quốc',
-      description: 'Miễn phí vận chuyển cho đơn hàng từ 150.000đ',
-    },
-    {
-      icon: <FaShieldAlt className="text-4xl text-green-600" />,
-      title: 'Sách chính hãng',
-      description: '100% sách chính hãng, nguyên seal',
-    },
-    {
-      icon: <FaHeadset className="text-4xl text-purple-600" />,
-      title: 'Hỗ trợ 24/7',
-      description: 'Đội ngũ tư vấn nhiệt tình, chuyên nghiệp',
-    },
-    {
-      icon: <FaStar className="text-4xl text-yellow-500" />,
-      title: 'Ưu đãi hấp dẫn',
-      description: 'Giảm giá lên đến 50% cho thành viên',
-    },
-  ];
+      <div className="flex flex-col flex-grow">
+        <h3 className="text-sm font-medium text-gray-800 line-clamp-2 h-10 mb-1 leading-tight">
+          {product.name}
+        </h3>
+        
+        {/* Giá tiền và số lượng tồn kho (Ảnh 1) */}
+        <div className="mt-2">
+          <div className="text-[#d72e2e] font-bold text-lg mb-0.5">
+            {product.price?.toLocaleString()}đ
+          </div>
+          <div className="text-[11px] text-gray-500 mb-3">
+            Còn: {product.countInStock || 50} sản phẩm
+          </div>
+        </div>
+
+        {/* Nút Thêm vào giỏ hàng màu đỏ trải dài (Ảnh 1) */}
+        <button className="w-full bg-[#d72e2e] text-white py-2 rounded-md font-bold text-sm hover:bg-red-700 transition-colors uppercase">
+          Thêm vào giỏ
+        </button>
+      </div>
+    </div>
+  );
+
+  // --- COMPONENT CÔNG CỤ TÌM KIẾM/LỌC (ẢNH 1) ---
+  const FilterBar = () => (
+    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-8 flex items-center justify-between">
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-gray-700">Thương hiệu:</span>
+          <select className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-500 min-w-[120px]">
+            <option>Văn học</option>
+            <option>Kinh tế</option>
+            <option>Ngoại ngữ</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-gray-700">Sắp xếp:</span>
+          <select className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-blue-500 min-w-[120px]">
+            <option>Mới nhất</option>
+            <option>Giá từ thấp đến cao</option>
+            <option>Giá từ cao đến thấp</option>
+          </select>
+        </div>
+      </div>
+      <button className="flex items-center gap-2 text-sm text-gray-700 hover:text-red-500 border border-gray-300 px-4 py-1.5 rounded bg-gray-50 transition-all font-medium">
+        <FaUndo size={12} /> Đặt lại
+      </button>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Slider */}
-      <div className="relative w-full h-[500px] overflow-hidden mb-10">
-        <div className="slider-container relative w-full h-full">
-          {slides.map((slide, index) => (
-            <div
-              key={index}
-              className={`slide absolute top-0 left-0 w-full h-full flex items-center justify-between px-[10%] text-white transition-opacity duration-500 ${
-                index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
-              }`}
-              style={{ background: slide.bg }}
-            >
-              <div className="slide-content max-w-[500px] animate-slideIn">
-                <h2 className="text-5xl font-bold mb-5 drop-shadow-lg">{slide.title}</h2>
-                <p className="text-xl mb-8 opacity-95 leading-relaxed">{slide.subtitle}</p>
-                <Link
-                  to={slide.link}
-                  className="inline-block px-10 py-4 bg-white text-gray-800 rounded-full font-bold text-lg hover:shadow-2xl transition-all hover:-translate-y-1"
-                >
+    <div className="min-h-screen bg-[#f8f9fa] font-sans flex flex-col">
+      {/* BANNER (Ảnh 2) */}
+      <section className="relative h-[420px] overflow-hidden">
+        {slides.map((slide, index) => (
+          <div
+            key={index}
+            className={`absolute inset-0 transition-opacity duration-700 flex items-center ${
+              index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
+            }`}
+            style={{ background: slide.bg }}
+          >
+            <div className="container mx-auto px-4 flex items-center justify-between h-full">
+              <div className="max-w-md animate-slideUp">
+                <h2 className="text-4xl font-bold text-white mb-4 leading-tight">
+                  <span className="text-yellow-300 mr-2">⚡</span>{slide.title}
+                </h2>
+                <p className="text-lg text-white/90 mb-8">{slide.subtitle}</p>
+                <Link to={slide.link} className="bg-white text-gray-800 px-8 py-3 rounded-full font-bold shadow-lg hover:bg-gray-100 transition-all inline-block">
                   Khám phá ngay
                 </Link>
               </div>
-              <img
-                src={slide.image}
-                alt={slide.title}
-                className="w-[450px] h-[450px] object-cover drop-shadow-2xl animate-float rounded-2xl"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Navigation Arrows */}
-        <button
-          onClick={() => setCurrentSlide((currentSlide - 1 + slides.length) % slides.length)}
-          className="absolute left-5 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md text-white text-3xl px-5 py-4 rounded border-0 cursor-pointer z-20 hover:bg-white/50 transition-all"
-        >
-          ❮
-        </button>
-        <button
-          onClick={() => setCurrentSlide((currentSlide + 1) % slides.length)}
-          className="absolute right-5 top-1/2 -translate-y-1/2 bg-white/30 backdrop-blur-md text-white text-3xl px-5 py-4 rounded border-0 cursor-pointer z-20 hover:bg-white/50 transition-all"
-        >
-          ❯
-        </button>
-
-        {/* Dots */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-20">
-          {slides.map((_, index) => (
-            <span
-              key={index}
-              onClick={() => setCurrentSlide(index)}
-              className={`h-3 rounded-full cursor-pointer transition-all hover:bg-white/80 hover:scale-110 ${
-                index === currentSlide ? 'w-8 bg-white' : 'w-3 bg-white/50'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Page Title */}
-      <div className="text-center py-8">
-        <h1 className="text-4xl font-bold text-gray-800 mb-2">Kho Sách Đa Dạng</h1>
-        <p className="text-gray-600">Tìm thấy 1000+ đầu sách</p>
-      </div>
-
-      {/* Categories */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
-          {categories.map((category, index) => (
-            <Link
-              key={category.name}
-              to={`/products?category=${category.name}`}
-              className="bg-white border border-gray-200 rounded-lg p-8 hover:shadow-xl transition-all hover:-translate-y-2"
-            >
-              <div className="text-center">
-                <div className="text-5xl mb-4 hover:scale-110 transition-transform">
-                  {category.icon}
-                </div>
-                <p className="font-bold text-gray-700">{category.name}</p>
+              <div className="hidden lg:block animate-float">
+                <img 
+                  src={slide.image} 
+                  className="w-[380px] h-[320px] object-cover rounded-2xl shadow-2xl border-4 border-white/20"
+                  alt="Banner Book"
+                />
               </div>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Features */}
-      <div className="bg-white py-16">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="text-center p-8 bg-white rounded-lg shadow-lg hover:shadow-2xl transition-all hover:-translate-y-2"
-              >
-                <div className="flex justify-center mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-bold mb-3 text-gray-800">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="bg-gray-50 py-16">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-5xl font-bold text-blue-600 mb-2">10,000+</div>
-              <p className="text-gray-600 font-medium">Đầu sách</p>
-            </div>
-            <div>
-              <div className="text-5xl font-bold text-green-600 mb-2">50,000+</div>
-              <p className="text-gray-600 font-medium">Độc giả</p>
-            </div>
-            <div>
-              <div className="text-5xl font-bold text-orange-600 mb-2">99%</div>
-              <p className="text-gray-600 font-medium">Hài lòng</p>
-            </div>
-            <div>
-              <div className="text-5xl font-bold text-purple-600 mb-2">24/7</div>
-              <p className="text-gray-600 font-medium">Hỗ trợ</p>
             </div>
           </div>
-        </div>
+        ))}
+        <button onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 p-2 rounded-full text-white hover:bg-white/40"><FaChevronLeft size={20}/></button>
+        <button onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 p-2 rounded-full text-white hover:bg-white/40"><FaChevronRight size={20}/></button>
+      </section>
+
+      {/* TIÊU ĐỀ CHÍNH (Ảnh 1) */}
+      <div className="text-center pt-12 pb-6">
+        <h1 className="text-3xl font-black text-gray-800 mb-1 uppercase tracking-tight">Sách Hay Chính Hãng</h1>
+        <p className="text-sm text-gray-400 font-semibold tracking-wide">Tìm thấy {featuredProducts.length + newProducts.length} sản phẩm</p>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      {/* MAIN CONTENT (Ảnh 2 bố cục, Ô sản phẩm Ảnh 1) */}
+      <main className="container mx-auto px-4 py-8">
+        
+        {/* Thanh lọc giống ảnh 1 */}
+        <FilterBar />
+
+        {/* SÁCH NỔI BẬT */}
+        <section className="mb-12">
+          <div className="flex items-center justify-between mb-6 border-b-2 border-red-500 pb-2">
+            <h2 className="text-xl font-black text-gray-800 flex items-center gap-2 uppercase tracking-wide">
+              <FaFire className="text-red-500" /> SÁCH NỔI BẬT
+            </h2>
+            <Link to="/products" className="text-blue-500 text-xs font-bold hover:underline">XEM TẤT CẢ →</Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {loading ? <SkeletonGrid count={4} /> : featuredProducts.map(p => <ProductCard key={p._id} product={p} />)}
+          </div>
+        </section>
+
+        {/* SÁCH MỚI NHẤT */}
+        <section>
+          <div className="flex items-center justify-between mb-6 border-b-2 border-blue-500 pb-2">
+            <h2 className="text-xl font-black text-gray-800 flex items-center gap-2 uppercase tracking-wide">
+              <FaBook className="text-blue-500" /> SÁCH MỚI NHẤT
+            </h2>
+            <Link to="/products" className="text-blue-500 text-xs font-bold hover:underline">XEM TẤT CẢ →</Link>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {loading ? <SkeletonGrid count={8} /> : newProducts.map(p => <ProductCard key={p._id} product={p} />)}
+          </div>
+        </section>
+      </main>
+
+      {/* FOOTER */}
+      <footer className="bg-[#0f172a] text-white pt-16 pb-8 mt-auto">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-16 text-sm">
             <div>
-              <h3 className="text-lg font-bold mb-4">Về Chúng Tôi</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Giới thiệu</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Tin tức</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Tuyển dụng</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Liên hệ</a></li>
+              <h4 className="font-bold text-lg mb-6">Về Chúng Tôi</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><Link className="hover:text-white transition-colors">Giới thiệu</Link></li>
+                <li><Link className="hover:text-white transition-colors">Tin tức</Link></li>
+                <li><Link className="hover:text-white transition-colors">Tuyển dụng</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">Chính Sách</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Chính sách đổi trả</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Chính sách bảo hành</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Chính sách vận chuyển</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Phương thức thanh toán</a></li>
+              <h4 className="font-bold text-lg mb-6">Chính Sách</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><Link className="hover:text-white transition-colors">Chính sách đổi trả</Link></li>
+                <li><Link className="hover:text-white transition-colors">Chính sách vận chuyển</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">Hỗ Trợ</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Hướng dẫn mua hàng</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Câu hỏi thường gặp</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Kiểm tra đơn hàng</a></li>
+              <h4 className="font-bold text-lg mb-6">Hỗ Trợ</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><Link className="hover:text-white transition-colors">Hướng dẫn mua hàng</Link></li>
+                <li><Link className="hover:text-white transition-colors">Câu hỏi thường gặp</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">Kết Nối</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Facebook</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Instagram</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Youtube</a></li>
-                <li><a href="#" className="text-gray-400 hover:text-white transition-colors">Tiktok</a></li>
+              <h4 className="font-bold text-lg mb-6">Kết Nối</h4>
+              <ul className="space-y-3 text-gray-400">
+                <li><Link className="hover:text-white transition-colors">Facebook</Link></li>
+                <li><Link className="hover:text-white transition-colors">Instagram</Link></li>
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-8 text-center text-gray-400 text-sm">
+          <div className="border-t border-gray-800 pt-8 text-center text-xs text-gray-500">
             <p>© 2024 BookStore.vn - Sách hay chính hãng</p>
-            <p>Địa chỉ: 123 Đường ABC, Quận XYZ, TP. Hà Nội | Hotline: 1900-xxxx</p>
           </div>
         </div>
       </footer>
 
       <style jsx>{`
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(-50px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-
         @keyframes float {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-20px);
-          }
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
         }
-
-        .animate-slideIn {
-          animation: slideIn 0.8s ease-out;
-        }
-
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
+        .animate-slideUp { animation: slideUp 0.6s ease-out forwards; }
+        .animate-float { animation: float 4s ease-in-out infinite; }
       `}</style>
     </div>
   );
 };
+
+const SkeletonGrid = ({ count }) => (
+  [...Array(count)].map((_, i) => (
+    <div key={i} className="bg-white p-4 rounded-lg animate-pulse border border-gray-100">
+      <div className="bg-gray-100 aspect-[3/4] rounded-md mb-4" />
+      <div className="bg-gray-100 h-4 w-3/4 mb-2" />
+      <div className="bg-gray-200 h-10 w-full rounded" />
+    </div>
+  ))
+);
 
 export default Home;
