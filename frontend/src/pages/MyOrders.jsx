@@ -43,17 +43,10 @@ const MyOrders = () => {
     }
   };
 
-  const handleReview = (products) => {
-    if (products && products.length > 0) {
-        navigate(`/product/${products[0].productId || products[0]._id}`);
-    } else {
-        alert("Không tìm thấy sản phẩm để đánh giá.");
-    }
-  };
-
   const handleSupport = () => {
     window.location.href = "tel:1900xxxx";
   };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'Đang xử lý':
@@ -260,14 +253,6 @@ const MyOrders = () => {
                       onClick={() => handleCancelOrder(order._id)}
                       className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors">
                       Hủy đơn hàng
-                    </button>
-                  )}
-                  
-                  {order.orderStatus === 'Đã giao' && (
-                    <button
-                      onClick={() => handleReview(order.orderItems)}
-                      className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors">
-                      Đánh giá sản phẩm
                     </button>
                   )}
                   

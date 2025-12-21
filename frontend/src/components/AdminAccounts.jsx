@@ -226,21 +226,24 @@ const AdminAccounts = () => {
                       {customer.isAdmin ? 'Gỡ Admin' : 'Cấp Admin'}
                     </button>
                     
-                    <button
-                      onClick={() => handleToggleActive(customer._id, customer.isActive !== false)}
-                      className={`px-3 py-1 rounded text-xs font-semibold ${
-                        customer.isActive !== false
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : 'bg-green-100 text-green-700 hover:bg-green-200'
-                      }`}
-                      title={customer.isActive !== false ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                    >
-                      {customer.isActive !== false ? (
-                        <><FaEyeSlash className="inline mr-1" />Vô hiệu</>
-                      ) : (
-                        <><FaEye className="inline mr-1" />Kích hoạt</>
-                      )}
-                    </button>
+                    {/* Chỉ hiển thị nút vô hiệu hóa cho user thường */}
+                    {!customer.isAdmin && (
+                      <button
+                        onClick={() => handleToggleActive(customer._id, customer.isActive !== false)}
+                        className={`px-3 py-1 rounded text-xs font-semibold ${
+                          customer.isActive !== false
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                            : 'bg-green-100 text-green-700 hover:bg-green-200'
+                        }`}
+                        title={customer.isActive !== false ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                      >
+                        {customer.isActive !== false ? (
+                          <><FaEyeSlash className="inline mr-1" />Vô hiệu</>
+                        ) : (
+                          <><FaEye className="inline mr-1" />Kích hoạt</>
+                        )}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

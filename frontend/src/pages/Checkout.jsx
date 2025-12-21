@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { cartAPI, ordersAPI, vouchersAPI } from '../utils/api';
-import { FaMapMarkerAlt, FaCreditCard, FaShoppingBag, FaCheckCircle, FaTag, FaTimes, FaGift } from 'react-icons/fa';
+import { FaMapMarkerAlt, FaCreditCard, FaShoppingBag, FaCheckCircle, FaTag, FaTimes, FaGift, FaUniversity } from 'react-icons/fa';
 
 const Checkout = () => {
   const { user } = useAuth();
@@ -30,6 +30,14 @@ const Checkout = () => {
   });
 
   const [paymentMethod, setPaymentMethod] = useState('COD');
+  
+  // Bank transfer info
+  const [bankInfo, setBankInfo] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
+    transferNote: ''
+  });
 
   useEffect(() => {
     if (!user) {
@@ -132,11 +140,26 @@ const Checkout = () => {
     });
   };
 
+  const handleBankInfoChange = (e) => {
+    setBankInfo({
+      ...bankInfo,
+      [e.target.name]: e.target.value
+    });
+  };
+
   const validateStep1 = () => {
     if (!shippingInfo.name || !shippingInfo.phone || !shippingInfo.address || !shippingInfo.city) {
       alert('Vui lòng điền đầy đủ thông tin giao hàng');
       return false;
     }
+    
+    if (paymentMethod === 'BANK') {
+      if (!bankInfo.bankName || !bankInfo.accountNumber || !bankInfo.accountHolder) {
+        alert('Vui lòng điền đầy đủ thông tin chuyển khoản');
+        return false;
+      }
+    }
+    
     return true;
   };
 
@@ -166,7 +189,8 @@ const Checkout = () => {
         paymentMethod: paymentMethod,
         totalPrice: calculateTotal(),
         voucherCode: appliedVoucher?.code || null,
-        discountAmount: calculateDiscount()
+        discountAmount: calculateDiscount(),
+        bankTransferInfo: paymentMethod === 'BANK' ? bankInfo : null
       };
 
       const response = await ordersAPI.createOrder(orderData);
@@ -240,6 +264,13 @@ const Checkout = () => {
                 </h3>
                 <div className="space-y-2 text-sm text-gray-700">
                   <p><strong>Phương thức:</strong> {paymentMethod === 'COD' ? 'COD' : 'Chuyển khoản'}</p>
+                  {paymentMethod === 'BANK' && (
+                    <>
+                      <p><strong>Ngân hàng:</strong> {bankInfo.bankName}</p>
+                      <p><strong>STK:</strong> {bankInfo.accountNumber}</p>
+                      <p><strong>Chủ TK:</strong> {bankInfo.accountHolder}</p>
+                    </>
+                  )}
                   {appliedVoucher && (
                     <p className="text-green-600"><strong>Voucher:</strong> {appliedVoucher.code} (-{calculateDiscount().toLocaleString()}₫)</p>
                   )}
@@ -263,7 +294,7 @@ const Checkout = () => {
       </div>
     );
   }
-
+// Tiếp theo từ phần 1 - phần return chính
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -293,6 +324,7 @@ const Checkout = () => {
           <div className="lg:col-span-2">
             {step === 1 && (
               <div className="space-y-6">
+                {/* Thông tin giao hàng */}
                 <div className="bg-white rounded-lg shadow p-6">
                   <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                     <FaMapMarkerAlt className="text-red-600" />
@@ -341,12 +373,121 @@ const Checkout = () => {
                   </div>
                 </div>
 
+                {/* Phương thức thanh toán */}
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <FaCreditCard className="text-red-600" />
+                    Phương thức thanh toán
+                  </h2>
+                  
+                  <div className="space-y-3">
+                    <label className="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-red-500 transition-colors">
+                      <input type="radio" name="paymentMethod" value="COD" checked={paymentMethod === 'COD'} onChange={(e) => setPaymentMethod(e.target.value)} className="mr-3" />
+                      <div>
+                        <p className="font-semibold">💵 Thanh toán khi nhận hàng (COD)</p>
+                        <p className="text-sm text-gray-600">Thanh toán bằng tiền mặt</p>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-red-500 transition-colors">
+                      <input type="radio" name="paymentMethod" value="BANK" checked={paymentMethod === 'BANK'} onChange={(e) => setPaymentMethod(e.target.value)} className="mr-3" />
+                      <div>
+                        <p className="font-semibold">🏦 Chuyển khoản ngân hàng</p>
+                        <p className="text-sm text-gray-600">Chuyển khoản qua số tài khoản</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Form thông tin chuyển khoản */}
+                  {paymentMethod === 'BANK' && (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
+                      <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <FaUniversity className="text-blue-600" />
+                        Thông tin chuyển khoản
+                      </h3>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Ngân hàng *</label>
+                          <select
+                            name="bankName"
+                            value={bankInfo.bankName}
+                            onChange={handleBankInfoChange}
+                            required
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Chọn ngân hàng</option>
+                            <option value="Vietcombank">Vietcombank</option>
+                            <option value="VietinBank">VietinBank</option>
+                            <option value="BIDV">BIDV</option>
+                            <option value="Agribank">Agribank</option>
+                            <option value="Techcombank">Techcombank</option>
+                            <option value="MB Bank">MB Bank</option>
+                            <option value="ACB">ACB</option>
+                            <option value="VPBank">VPBank</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Số tài khoản *</label>
+                          <input
+                            type="text"
+                            name="accountNumber"
+                            value={bankInfo.accountNumber}
+                            onChange={handleBankInfoChange}
+                            required
+                            placeholder="Nhập số tài khoản"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Chủ tài khoản *</label>
+                          <input
+                            type="text"
+                            name="accountHolder"
+                            value={bankInfo.accountHolder}
+                            onChange={handleBankInfoChange}
+                            required
+                            placeholder="Nhập tên chủ tài khoản"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung chuyển khoản</label>
+                          <input
+                            type="text"
+                            name="transferNote"
+                            value={bankInfo.transferNote}
+                            onChange={handleBankInfoChange}
+                            placeholder="VD: DH123456"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 p-3 bg-yellow-50 rounded text-xs text-yellow-800">
+                        ⚠️ Vui lòng chuyển khoản đúng số tiền và ghi đúng nội dung để được xử lý nhanh nhất
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Voucher Section */}
                 <div className="bg-white rounded-lg shadow p-6">
-                  <h3 className="font-bold mb-4 flex items-center gap-2">
-                    <FaTag className="text-orange-600" />
-                    Mã giảm giá
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold flex items-center gap-2">
+                      <FaTag className="text-orange-600" />
+                      Mã giảm giá
+                    </h3>
+                    <button
+                      onClick={() => setShowVouchers(!showVouchers)}
+                      className="text-sm text-blue-600 hover:underline font-semibold"
+                    >
+                      {showVouchers ? 'Ẩn voucher' : 'Hiện voucher'}
+                    </button>
+                  </div>
 
                   {appliedVoucher ? (
                     <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4 flex items-center justify-between">
@@ -386,13 +527,6 @@ const Checkout = () => {
                         </div>
                       )}
 
-                      <button 
-                        onClick={() => setShowVouchers(!showVouchers)}
-                        className="text-blue-600 text-sm font-semibold hover:underline"
-                      >
-                        {showVouchers ? 'Ẩn' : 'Xem'} danh sách voucher
-                      </button>
-
                       {showVouchers && (
                         <div className="mt-4 space-y-2">
                           {vouchers.map(voucher => (
@@ -425,35 +559,10 @@ const Checkout = () => {
                     </>
                   )}
                 </div>
-
-                {/* Payment Method */}
-                <div className="bg-white rounded-lg shadow p-6">
-                  <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <FaCreditCard className="text-red-600" />
-                    Phương thức thanh toán
-                  </h2>
-                  
-                  <div className="space-y-3">
-                    <label className="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-red-500 transition-colors">
-                      <input type="radio" name="paymentMethod" value="COD" checked={paymentMethod === 'COD'} onChange={(e) => setPaymentMethod(e.target.value)} className="mr-3" />
-                      <div>
-                        <p className="font-semibold">💵 Thanh toán khi nhận hàng (COD)</p>
-                        <p className="text-sm text-gray-600">Thanh toán bằng tiền mặt</p>
-                      </div>
-                    </label>
-                    
-                    <label className="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-red-500 transition-colors">
-                      <input type="radio" name="paymentMethod" value="BANK" checked={paymentMethod === 'BANK'} onChange={(e) => setPaymentMethod(e.target.value)} className="mr-3" />
-                      <div>
-                        <p className="font-semibold">🏦 Chuyển khoản ngân hàng</p>
-                        <p className="text-sm text-gray-600">Chuyển khoản qua QR hoặc số tài khoản</p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
               </div>
             )}
 
+            {/* Step 2 - Xác nhận */}
             {step === 2 && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -490,6 +599,9 @@ const Checkout = () => {
 
                 <div className="p-4 bg-blue-50 rounded-lg">
                   <p className="text-sm text-gray-700"><strong>Thanh toán:</strong> {paymentMethod === 'COD' ? 'COD' : 'Chuyển khoản'}</p>
+                  {paymentMethod === 'BANK' && (
+                    <p className="text-sm text-gray-700 mt-1"><strong>Ngân hàng:</strong> {bankInfo.bankName} - {bankInfo.accountNumber}</p>
+                  )}
                   {appliedVoucher && (
                     <p className="text-sm text-green-700 mt-1"><strong>Voucher:</strong> {appliedVoucher.code} (Giảm {calculateDiscount().toLocaleString()}₫)</p>
                   )}
@@ -497,6 +609,7 @@ const Checkout = () => {
               </div>
             )}
 
+            {/* Buttons */}
             <div className="flex gap-4 mt-6">
               {step > 1 && <button onClick={handleBack} className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300">Quay lại</button>}
               {step === 1 && <button onClick={handleNext} className="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700">Tiếp tục</button>}
@@ -504,6 +617,7 @@ const Checkout = () => {
             </div>
           </div>
 
+          {/* Sidebar - Tóm tắt */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-6 sticky top-4">
               <h2 className="text-xl font-bold mb-4">Tóm tắt đơn hàng</h2>
