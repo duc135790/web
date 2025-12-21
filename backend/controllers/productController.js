@@ -5,7 +5,6 @@ import Order from '../models/orderModel.js';
 // @route   GET /api/products
 // @access  Public
 const getProducts = async (req, res) => {
-  //Xử lý tìm kiếm (Keyword)
   const keyword = req.query.keyword
     ? {
         $or: [
@@ -19,7 +18,12 @@ const getProducts = async (req, res) => {
     ? { category: req.query.category }
     : {};
 
-  const products = await Product.find({ ...keyword, ...category });
+  // ✅ Chỉ hiển thị sản phẩm chưa bị ẩn
+  const products = await Product.find({ 
+    ...keyword, 
+    ...category,
+    isHidden: { $ne: true }
+  });
   
   res.json(products);
 };
@@ -41,14 +45,14 @@ const getProductById = async (req, res) => {
   }
 };
 
-// @desc    Lấy TẤT CẢ sản phẩm cho Admin (không filter, có sort)
+// @desc    Lấy TẤT CẢ sản phẩm cho Admin (bao gồm cả ẩn)
 // @route   GET /api/products/admin/all
 // @access  Private/Admin
 const getAllProductsAdmin = async (req, res) => {
   try {
     const products = await Product.find({})
       .sort({ createdAt: -1 })
-      .select('-__v'); // Bỏ field __v không cần thiết
+      .select('-__v');
     
     res.json({
       success: true,
@@ -64,11 +68,10 @@ const getAllProductsAdmin = async (req, res) => {
   }
 };
 
-// @desc    Tạo sản phẩm mới (Dữ liệu mẫu)
+// @desc    Tạo sản phẩm mới
 // @route   POST /api/products
 // @access  Private/Admin
 const createProduct = async (req, res) => {
-    // Tạo một cuốn sách mẫu rỗng để Admin vào sửa sau
     const product = new Product({
         user: req.user._id,
         name: 'Tên sách mới',
@@ -81,7 +84,8 @@ const createProduct = async (req, res) => {
         publisher: 'Nhà xuất bản',
         publicationYear: 2024,
         language: 'Tiếng Việt',
-        pageCount: 100
+        pageCount: 100,
+        isHidden: false
     });
 
     const createdProduct = await product.save();
@@ -92,7 +96,6 @@ const createProduct = async (req, res) => {
 // @route   PUT /api/products/:id
 // @access  Private/Admin
 const updateProduct = async (req, res) => {
-  // Lấy các trường dữ liệu Sách từ Frontend gửi lên
   const { 
       name, 
       price, 
@@ -104,7 +107,8 @@ const updateProduct = async (req, res) => {
       publisher,
       publicationYear,
       language,
-      pageCount
+      pageCount,
+      isHidden
   } = req.body;
 
   const product = await Product.findById(req.params.id);
@@ -117,12 +121,16 @@ const updateProduct = async (req, res) => {
     product.category = category || product.category;
     product.countInStock = countInStock !== undefined ? countInStock : product.countInStock;
     
-    // Cập nhật các trường sách
     product.author = author || product.author;
     product.publisher = publisher || product.publisher;
     product.publicationYear = publicationYear || product.publicationYear;
     product.language = language || product.language;
     product.pageCount = pageCount || product.pageCount;
+    
+    // ✅ Cập nhật trạng thái ẩn/hiện
+    if (isHidden !== undefined) {
+      product.isHidden = isHidden;
+    }
 
     const updatedProduct = await product.save();
     res.json(updatedProduct);
@@ -152,7 +160,31 @@ const updateProductStock = async (req, res) => {
   }
 };
 
-// @desc    Xóa sản phẩm
+// @desc    Ẩn/Hiện sản phẩm (thay vì xóa)
+// @route   PUT /api/products/:id/toggle-visibility
+// @access  Private/Admin
+const toggleProductVisibility = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      product.isHidden = !product.isHidden;
+      const updatedProduct = await product.save();
+      
+      res.json({
+        message: product.isHidden ? 'Đã ẩn sản phẩm' : 'Đã hiển thị sản phẩm',
+        product: updatedProduct
+      });
+    } else {
+      res.status(404);
+      throw new Error('Không tìm thấy sách');
+    }
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Xóa sản phẩm (giữ lại cho trường hợp đặc biệt)
 // @route   DELETE /api/products/:id
 // @access  Private/Admin
 const deleteProduct = async (req, res) => {
@@ -169,7 +201,7 @@ const deleteProduct = async (req, res) => {
 
 // @desc    Tạo đánh giá sản phẩm mới
 // @route   POST /api/products/:id/reviews
-// @access  Private (Cần đăng nhập)
+// @access  Private
 const createProductReview = async (req, res) => {
   const { rating, comment } = req.body;
   const productId = req.params.id;
@@ -183,7 +215,6 @@ const createProductReview = async (req, res) => {
 
   const user = req.user;
 
-  // Kiểm tra xem user đã mua sách này chưa
   const orders = await Order.find({ 
     user: user._id, 
     'orderItems.product': productId,
@@ -222,6 +253,50 @@ const createProductReview = async (req, res) => {
   res.status(201).json({ message: 'Đánh giá đã được thêm' });
 };
 
+// @desc    Thống kê sản phẩm bán chạy
+// @route   GET /api/products/stats/best-selling
+// @access  Private/Admin
+const getBestSellingProducts = async (req, res) => {
+  try {
+    const bestSelling = await Order.aggregate([
+      { $unwind: '$orderItems' },
+      {
+        $group: {
+          _id: '$orderItems.product',
+          totalSold: { $sum: '$orderItems.quantity' },
+          totalRevenue: { $sum: { $multiply: ['$orderItems.quantity', '$orderItems.price'] } }
+        }
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'productInfo'
+        }
+      },
+      { $unwind: '$productInfo' },
+      {
+        $project: {
+          _id: 1,
+          name: '$productInfo.name',
+          image: '$productInfo.image',
+          category: '$productInfo.category',
+          price: '$productInfo.price',
+          totalSold: 1,
+          totalRevenue: 1
+        }
+      }
+    ]);
+
+    res.json(bestSelling);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export {
   getProducts,
   getProductById,
@@ -229,6 +304,8 @@ export {
   createProduct,
   updateProduct,
   updateProductStock,
+  toggleProductVisibility,
   deleteProduct,
   createProductReview,
+  getBestSellingProducts,
 };

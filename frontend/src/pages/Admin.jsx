@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaCog, FaLock, FaBook, FaBoxOpen, FaTag } from 'react-icons/fa';
+import { FaCog, FaLock, FaBook, FaBoxOpen, FaTag, FaChartBar, FaUsers } from 'react-icons/fa';
+import AdminDashboard from '../components/AdminDashboard';
 import AdminProducts from '../components/AdminProducts';
 import AdminOrders from '../components/AdminOrders';
 import AdminVouchers from '../components/AdminVouchers';
+import AdminAccounts from '../components/AdminAccounts';
 
 const Admin = () => {
   const { user, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('products');
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   if (loading) {
     return (
@@ -55,43 +57,63 @@ const Admin = () => {
 
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow mb-6">
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-200 overflow-x-auto">
             <nav className="flex">
               <button
+                onClick={() => setActiveTab('dashboard')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'dashboard' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <FaChartBar className="inline mr-2" />
+                Dashboard
+              </button>
+              <button
                 onClick={() => setActiveTab('products')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'products' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <FaBook className="inline mr-2" />
-                Quản lý sản phẩm
+                Sản phẩm
               </button>
               <button
                 onClick={() => setActiveTab('orders')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'orders' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <FaBoxOpen className="inline mr-2" />
-                Quản lý đơn hàng
+                Đơn hàng
               </button>
               <button
                 onClick={() => setActiveTab('vouchers')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === 'vouchers' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <FaTag className="inline mr-2" />
-                Quản lý Vouchers
+                Vouchers
+              </button>
+              <button
+                onClick={() => setActiveTab('accounts')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'accounts' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <FaUsers className="inline mr-2" />
+                Tài khoản
               </button>
             </nav>
           </div>
 
           {/* Content */}
           <div className="p-6">
+            {activeTab === 'dashboard' && <AdminDashboard />}
             {activeTab === 'products' && <AdminProducts />}
             {activeTab === 'orders' && <AdminOrders />}
             {activeTab === 'vouchers' && <AdminVouchers />}
+            {activeTab === 'accounts' && <AdminAccounts />}
           </div>
         </div>
       </div>

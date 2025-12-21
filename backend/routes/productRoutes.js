@@ -8,25 +8,28 @@ import {
     updateProduct,
     deleteProduct,
     updateProductStock,
+    toggleProductVisibility,
     createProductReview,
+    getBestSellingProducts,
 } from '../controllers/productController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
-// ⚠️ QUAN TRỌNG: Route cụ thể phải đặt TRƯỚC route động /:id
 // Admin routes (đặt trước)
 router.get('/admin/all', protect, admin, getAllProductsAdmin);
+router.get('/stats/best-selling', protect, admin, getBestSellingProducts);
 
 // Public routes
-router.get('/', getProducts);                      // GET /api/products?keyword=...&category=...
-router.get('/:id', getProductById);                // GET /api/products/:id
+router.get('/', getProducts);
+router.get('/:id', getProductById);
 
 // Admin CRUD routes
-router.post('/', protect, admin, createProduct);                  // POST /api/products
-router.put('/:id', protect, admin, updateProduct);                // PUT /api/products/:id
-router.put('/:id/stock', protect, admin, updateProductStock);     // PUT /api/products/:id/stock
-router.delete('/:id', protect, admin, deleteProduct);             // DELETE /api/products/:id
+router.post('/', protect, admin, createProduct);
+router.put('/:id', protect, admin, updateProduct);
+router.put('/:id/stock', protect, admin, updateProductStock);
+router.put('/:id/toggle-visibility', protect, admin, toggleProductVisibility);
+router.delete('/:id', protect, admin, deleteProduct);
 
-// Review route (User cần đăng nhập)
-router.post('/:id/reviews', protect, createProductReview);        // POST /api/products/:id/reviews
+// Review route
+router.post('/:id/reviews', protect, createProductReview);
 
 export default router;

@@ -55,6 +55,8 @@ export const productsAPI = {
   updateProduct: (id, productData) => api.put(`/products/${id}`, productData),
   deleteProduct: (id) => api.delete(`/products/${id}`),
   updateStock: (id, countInStock) => api.put(`/products/${id}/stock`, { countInStock }),
+  toggleVisibility: (id) => api.put(`/products/${id}/toggle-visibility`),
+  getBestSelling: () => api.get('/products/stats/best-selling'),
 };
 
 export const ordersAPI = {
@@ -62,8 +64,14 @@ export const ordersAPI = {
   getMyOrders: () => api.get('/orders/myorders'),
   getOrderById: (id) => api.get(`/orders/${id}`),
   getAllOrders: () => api.get('/orders'),
+  updateStatus: (id, orderStatus) => api.put(`/orders/${id}/status`, { orderStatus }),
   updateOrderToDelivered: (id) => api.put(`/orders/${id}/deliver`),
   cancelOrder: (id) => api.delete(`/orders/${id}`),
+  
+  // Stats
+  getRevenueStats: (period = 'month') => api.get('/orders/stats/revenue', { params: { period } }),
+  getTopCustomers: () => api.get('/orders/stats/top-customers'),
+  getOverview: () => api.get('/orders/stats/overview'),
 };
 
 export const cartAPI = {

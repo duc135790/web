@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { productsAPI } from '../utils/api';
-import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaEye, FaEyeSlash } from 'react-icons/fa';
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all'); // all, visible, hidden
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -27,8 +28,8 @@ const AdminProducts = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await productsAPI.getProducts();
-      setProducts(response.data);
+      const response = await productsAPI.getAllProducts();
+      setProducts(response.data.products);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -77,12 +78,13 @@ const AdminProducts = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa sách này?')) return;
+  const handleToggleVisibility = async (id, currentStatus) => {
+    const action = currentStatus ? 'hiển thị' : 'ẩn';
+    if (!window.confirm(`Bạn có chắc chắn muốn ${action} sản phẩm này?`)) return;
     
     try {
-      await productsAPI.deleteProduct(id);
-      alert('✅ Xóa sách thành công!');
+      await productsAPI.toggleVisibility(id);
+      alert(`✅ Đã ${action} sản phẩm thành công!`);
       fetchProducts();
     } catch (error) {
       alert('❌ Lỗi: ' + (error.response?.data?.message || error.message));
@@ -105,78 +107,134 @@ const AdminProducts = () => {
     });
   };
 
+  const filteredProducts = products.filter(product => {
+    if (filterStatus === 'visible') return !product.isHidden;
+    if (filterStatus === 'hidden') return product.isHidden;
+    return true;
+  });
+
   if (loading) {
     return <div className="text-center py-12">Đang tải...</div>;
   }
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Danh sách sản phẩm</h2>
-        <button
-          onClick={() => {
-            setEditingProduct(null);
-            resetForm();
-            setShowModal(true);
-          }}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <FaPlus />
-          <span>Thêm sản phẩm</span>
-        </button>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-semibold">Danh sách sản phẩm</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Hiển thị {filteredProducts.length}/{products.length} sản phẩm
+          </p>
+        </div>
+        
+        <div className="flex gap-3">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="border-2 border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+          >
+            <option value="all">Tất cả</option>
+            <option value="visible">Đang hiển thị</option>
+            <option value="hidden">Đã ẩn</option>
+          </select>
+          
+          <button
+            onClick={() => {
+              setEditingProduct(null);
+              resetForm();
+              setShowModal(true);
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center space-x-2 whitespace-nowrap"
+          >
+            <FaPlus />
+            <span>Thêm sản phẩm</span>
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sách</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thể loại</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giá</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tồn kho</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {products.map((product) => (
-              <tr key={product._id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <img src={product.image} alt={product.name} className="h-12 w-12 rounded object-cover" />
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">{product.category || product.brand}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-red-600 font-semibold">
-                  {product.price.toLocaleString()}₫
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    (product.countInStock || product.stock) > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {product.countInStock || product.stock}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                  <button
-                    onClick={() => handleEdit(product)}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    <FaEdit />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(product._id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    <FaTrash />
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sách</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thể loại</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Giá</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tồn kho</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Trạng thái</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Thao tác</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredProducts.map((product) => (
+                <tr key={product._id} className={product.isHidden ? 'bg-gray-50 opacity-60' : ''}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <img 
+                        src={product.image} 
+                        alt={product.name} 
+                        className="h-12 w-12 rounded object-cover"
+                        onError={(e) => e.target.src = 'https://via.placeholder.com/50'}
+                      />
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                        {product.author && (
+                          <div className="text-xs text-gray-500">{product.author}</div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                      {product.category || product.brand}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-red-600 font-semibold">
+                    {product.price.toLocaleString()}₫
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      (product.countInStock || product.stock) > 0 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {product.countInStock || product.stock}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      product.isHidden 
+                        ? 'bg-gray-200 text-gray-700' 
+                        : 'bg-green-100 text-green-800'
+                    }`}>
+                      {product.isHidden ? '👁️‍🗨️ Đã ẩn' : '👁️ Hiển thị'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
+                    <button
+                      onClick={() => handleEdit(product)}
+                      className="text-blue-600 hover:text-blue-900 p-2"
+                      title="Chỉnh sửa"
+                    >
+                      <FaEdit size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleToggleVisibility(product._id, product.isHidden)}
+                      className={`p-2 ${
+                        product.isHidden 
+                          ? 'text-green-600 hover:text-green-900' 
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                      title={product.isHidden ? 'Hiển thị' : 'Ẩn'}
+                    >
+                      {product.isHidden ? <FaEye size={16} /> : <FaEyeSlash size={16} />}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {showModal && (
@@ -201,6 +259,7 @@ const AdminProducts = () => {
                     <option value="Thiếu nhi">Thiếu nhi</option>
                     <option value="Giáo khoa">Giáo khoa</option>
                     <option value="Ngoại ngữ">Ngoại ngữ</option>
+                    <option value="Lịch sử">Lịch sử</option>
                   </select>
                 </div>
               </div>

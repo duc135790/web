@@ -1,18 +1,33 @@
 import express from 'express';
 const router = express.Router();
-import { addOrderItems, getMyOrders, getOrders, updateOrderToDelivered, getOrderById, deleteOrder} from '../controllers/orderController.js';
+import { 
+  addOrderItems, 
+  getMyOrders, 
+  getOrders, 
+  updateOrderStatus,
+  updateOrderToDelivered, 
+  getOrderById, 
+  deleteOrder,
+  getRevenueStats,
+  getTopCustomers,
+  getOrdersOverview
+} from '../controllers/orderController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
-//route cua admin
-router
-  .route('/')
-  .post(protect, addOrderItems) // (ham nay user cung dung)
-  .get(protect, admin, getOrders); // (chi admin)
+
+// Admin stats routes
+router.get('/stats/revenue', protect, admin, getRevenueStats);
+router.get('/stats/top-customers', protect, admin, getTopCustomers);
+router.get('/stats/overview', protect, admin, getOrdersOverview);
+
+// Order routes
+router.route('/')
+  .post(protect, addOrderItems)
+  .get(protect, admin, getOrders);
   
-//route cua user
 router.get('/myorders', protect, getMyOrders);
-//route chung(co bao mat ben trong)
 router.get('/:id', protect, getOrderById);
-//route cap nhat cau admin
+router.put('/:id/status', protect, admin, updateOrderStatus);
 router.put('/:id/deliver', protect, admin, updateOrderToDelivered);
 router.delete('/:id', protect, deleteOrder);
+
 export default router;
