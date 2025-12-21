@@ -1,7 +1,5 @@
 import axios from 'axios';
 
-// Nếu có VITE_API_URL thì dùng, không thì dùng full URL trực tiếp
-// Vite proxy đôi khi không hoạt động, nên dùng full URL để chắc chắn
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 console.log('🔗 API Base URL:', API_URL);
@@ -20,8 +18,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    // Log request để debug
-    console.log(`🚀 [API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`, config.data || '');
+    console.log(`🚀 [API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
     return config;
   },
   (error) => {
@@ -30,7 +27,7 @@ api.interceptors.request.use(
   }
 );
 
-// Handle response errors
+// Handle response errors - ĐÃ SỬA: Chỉ logout khi thực sự 401
 api.interceptors.response.use(
   (response) => {
     console.log(`✅ [API Response] ${response.config.method?.toUpperCase()} ${response.config.url}`, response.status);
@@ -40,22 +37,35 @@ api.interceptors.response.use(
     console.error(`❌ [API Error] ${error.config?.method?.toUpperCase()} ${error.config?.url}`, {
       status: error.response?.status,
       message: error.response?.data?.message || error.message,
-      data: error.response?.data
     });
+    
+    // ✅ CHỈ logout khi thực sự là lỗi authentication
+    // VÀ không phải là request login/register
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      const url = error.config?.url || '';
+      const isAuthRequest = url.includes('/login') || url.includes('/register');
+      
+      if (!isAuthRequest) {
+        console.warn('⚠️ 401 Unauthorized - Token hết hạn');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        
+        // Chỉ redirect nếu không phải đang ở trang login
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
+        }
+      }
     }
+    
     return Promise.reject(error);
   }
 );
 
 // ✅ Auth API
 export const authAPI = {
-  login: (credentials) => api.post('/customers/login', credentials),  // Thêm chữ 's'
-  register: (userData) => api.post('/customers', userData),           // Thêm chữ 's'
-  getProfile: () => api.get('/customers/profile'),                    // Thêm chữ 's'
+  login: (credentials) => api.post('/customers/login', credentials),
+  register: (userData) => api.post('/customers', userData),
+  getProfile: () => api.get('/customers/profile'),
 };
 
 // ✅ Products API

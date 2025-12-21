@@ -9,31 +9,41 @@ import{
     getCustomerProfile,
     updateUserProfile,
     updateCartItemQuantity,
+    clearCart,
 }from '../controllers/customerController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 console.log('📋 Customer routes loading...');
 
-//cac routes cong khai
+//cac routes cong khai (không cần đăng nhập)
 router.post('/', registerCustomer);
 router.post('/login', loginCustomer);
 
 console.log('  ✅ POST / (register) registered');
 console.log('  ✅ POST /login registered');
 
-//cac routes rieng tu
-router
-    .route('/cart')
+//cac routes rieng tu (cần đăng nhập)
+router.route('/cart')
     .get(protect, getCustomerCart)
     .post(protect, addItemToCart)
     .put(protect, updateCartItemQuantity);
 
+console.log('  ✅ GET /cart registered');
+console.log('  ✅ POST /cart registered');
+console.log('  ✅ PUT /cart registered');
+
 //route xoa item
 router.delete('/cart/:productId', protect, removeItemFromCart);
 
-router
-    .route('/profile')
+console.log('  ✅ DELETE /cart/:productId registered');
+
+router.route('/profile')
     .get(protect, getCustomerProfile)
     .put(protect, updateUserProfile);
+
+console.log('  ✅ GET /profile registered');
+console.log('  ✅ PUT /profile registered');
+
+console.log('✅ Customer routes loaded successfully');
 
 export default router;

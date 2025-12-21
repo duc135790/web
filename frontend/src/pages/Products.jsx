@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { productsAPI } from '../utils/api';
-import { FaBook, FaSearch } from 'react-icons/fa';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { productsAPI, cartAPI } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import { FaBook, FaShoppingCart } from 'react-icons/fa';
 
 const Products = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState(searchParams.get('category') || '');
   const [sortBy, setSortBy] = useState('newest');
+  const [addingToCart, setAddingToCart] = useState({});
 
   useEffect(() => {
     fetchProducts();
@@ -32,6 +36,29 @@ const Products = () => {
       setSearchParams({ category: value });
     } else {
       setSearchParams({});
+    }
+  };
+
+  // ✅ HÀM THÊM VÀO GIỎ HÀNG
+  const handleAddToCart = async (productId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    setAddingToCart(prev => ({ ...prev, [productId]: true }));
+
+    try {
+      await cartAPI.addToCart(productId, 1);
+      alert('✅ Đã thêm vào giỏ hàng!');
+    } catch (error) {
+      console.error('❌ Error adding to cart:', error);
+      alert('❌ Thêm vào giỏ hàng thất bại: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setAddingToCart(prev => ({ ...prev, [productId]: false }));
     }
   };
 
@@ -115,61 +142,103 @@ const Products = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {products.map((product) => (
-              <div
-                key={product._id}
-                className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-xl transition-all hover:-translate-y-2 relative"
-              >
-                {/* Badge */}
-                {product.inStock && (
-                  <span className="absolute top-3 left-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold z-10">
-                    Mới
-                  </span>
-                )}
-
-                {/* Image */}
-                <Link to={`/products/${product._id}`} className="block relative pt-[100%] overflow-hidden bg-gray-50">
-                  {product.image ? (
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="absolute top-0 left-0 w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                      <FaBook className="text-white text-6xl opacity-50" />
-                    </div>
+            {products.map((product) => {
+              const isOutOfStock = !product.countInStock || product.countInStock === 0;
+              
+              return (
+                <Link
+                  key={product._id}
+                  to={`/products/${product._id}`}
+                  className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-xl transition-all hover:-translate-y-2 relative group cursor-pointer"
+                >
+                  {/* Badge */}
+                  {isOutOfStock ? (
+                    <span className="absolute top-3 left-3 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold z-10">
+                      Hết hàng
+                    </span>
+                  ) : product.inStock && (
+                    <span className="absolute top-3 left-3 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold z-10">
+                      Mới
+                    </span>
                   )}
+
+                  {/* Image */}
+                  <div className="relative pt-[100%] overflow-hidden bg-gray-50">
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className={`absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-300 ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
+                      />
+                    ) : (
+                      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                        <FaBook className="text-white text-6xl opacity-50" />
+                      </div>
+                    )}
+                    {isOutOfStock && (
+                      <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                        <span className="bg-red-600 text-white px-6 py-3 rounded-lg text-lg font-bold">
+                          HẾT HÀNG
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <div className="mb-2">
+                      <h3 className="text-sm font-semibold text-gray-800 group-hover:text-red-600 line-clamp-2 min-h-[40px]">
+                        {product.name}
+                      </h3>
+                    </div>
+                    
+                    <div className="text-lg font-bold text-red-600 mb-2">
+                      {product.price.toLocaleString()}₫
+                    </div>
+                    
+                    <div className={`text-xs mb-3 font-semibold ${isOutOfStock ? 'text-red-600' : product.countInStock < 10 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {isOutOfStock ? '❌ Hết hàng' : `Còn: ${product.stock || product.countInStock} sản phẩm`}
+                      {!isOutOfStock && product.countInStock < 10 && ' ⚠️'}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!isOutOfStock) {
+                            handleAddToCart(product._id, e);
+                          }
+                        }}
+                        disabled={addingToCart[product._id] || isOutOfStock}
+                        className={`flex-1 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-1 text-xs ${
+                          isOutOfStock 
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                            : 'bg-red-600 text-white hover:bg-red-700'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {isOutOfStock ? (
+                          <span>Hết hàng</span>
+                        ) : addingToCart[product._id] ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            <span>Thêm...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FaShoppingCart size={12} />
+                            <span>Giỏ hàng</span>
+                          </>
+                        )}
+                      </button>
+                      <button className="px-3 bg-gray-100 text-gray-700 rounded-md font-medium text-xs hover:bg-gray-200 transition-colors">
+                        Chi tiết
+                      </button>
+                    </div>
+                  </div>
                 </Link>
-
-                {/* Info */}
-                <div className="p-4">
-                  <div className="mb-2">
-                    <Link
-                      to={`/products/${product._id}`}
-                      className="text-sm font-semibold text-gray-800 hover:text-red-600 line-clamp-2 min-h-[40px]"
-                    >
-                      {product.name}
-                    </Link>
-                  </div>
-                  
-                  <div className="text-lg font-bold text-red-600 mb-2">
-                    {product.price.toLocaleString()}₫
-                  </div>
-                  
-                  <div className="text-xs text-green-600 mb-3">
-                    Còn: {product.stock} sản phẩm
-                  </div>
-
-                  <Link
-                    to={`/products/${product._id}`}
-                    className="block w-full text-center bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 transition-colors"
-                  >
-                    Thêm vào giỏ
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

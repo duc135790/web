@@ -16,15 +16,27 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    if (storedUser && token) {
-      const userData = JSON.parse(storedUser);
-      setUser(userData);
-      console.log('✅ User từ localStorage:', userData);
-      console.log('✅ isAdmin:', userData.isAdmin);
-    }
-    setLoading(false);
+    // Load user từ localStorage khi app khởi động
+    const loadUser = () => {
+      try {
+        const storedUser = localStorage.getItem('user');
+        const token = localStorage.getItem('token');
+        
+        if (storedUser && token) {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+          console.log('✅ Loaded user from localStorage:', userData);
+        }
+      } catch (error) {
+        console.error('❌ Error loading user:', error);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
   }, []);
 
   const login = async (email, password) => {
@@ -35,12 +47,14 @@ export const AuthProvider = ({ children }) => {
       
       const { token, ...userData } = response.data;
       
+      // Lưu vào localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Cập nhật state
       setUser(userData);
       
-      console.log('✅ User sau login:', userData);
-      console.log('✅ isAdmin:', userData.isAdmin);
+      console.log('✅ Login success, user:', userData);
       
       return { success: true };
     } catch (error) {
@@ -60,8 +74,11 @@ export const AuthProvider = ({ children }) => {
       
       const { token, ...userInfo } = response.data;
       
+      // Lưu vào localStorage
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userInfo));
+      
+      // Cập nhật state
       setUser(userInfo);
       
       return { success: true };
@@ -78,17 +95,23 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    console.log('👋 User logged out');
   };
 
-  // ✅ FIX: Kiểm tra isAdmin từ user object
+  // ✅ Tính isAdmin từ user state
   const isAdmin = user?.isAdmin === true;
 
-  console.log('🔍 AuthContext State:', { user, isAdmin, loading });
+  const value = {
+    user,
+    login,
+    register,
+    logout,
+    loading,
+    isAdmin
+  };
 
   return (
-    <AuthContext.Provider
-      value={{ user, login, register, logout, loading, isAdmin }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

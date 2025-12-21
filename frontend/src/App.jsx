@@ -10,6 +10,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
+import Checkout from './pages/Checkout';
 import MyOrders from './pages/MyOrders';
 import Admin from './pages/Admin';
 

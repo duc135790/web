@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
-  FaBook, FaStar, FaFire, FaChevronLeft, FaChevronRight, FaUndo 
+  FaBook, FaFire, FaChevronLeft, FaChevronRight, FaUndo, FaShoppingCart 
 } from 'react-icons/fa';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+import { cartAPI } from '../utils/api';
 
 const Home = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [addingToCart, setAddingToCart] = useState({});
 
   const slides = [
     {
@@ -56,37 +61,108 @@ const Home = () => {
     fetchProducts();
   }, []);
 
-  const ProductCard = ({ product }) => (
-    <div className="bg-white rounded-lg border border-gray-200 p-3 transition-all hover:shadow-md flex flex-col h-full">
-      <div className="relative mb-3 aspect-[3/4] overflow-hidden rounded-md group">
-        <img 
-          src={product.image} 
-          alt={product.name} 
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=Book'}
-        />
-        <div className="absolute top-2 left-2 bg-[#27ae60] text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm">
-          Mới
+  // ✅ HÀM THÊM VÀO GIỎ HÀNG
+  const handleAddToCart = async (productId, e) => {
+    e.preventDefault(); // Ngăn không cho navigate
+    e.stopPropagation();
+
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    setAddingToCart(prev => ({ ...prev, [productId]: true }));
+
+    try {
+      await cartAPI.addToCart(productId, 1);
+      alert('✅ Đã thêm vào giỏ hàng!');
+    } catch (error) {
+      console.error('❌ Error adding to cart:', error);
+      alert('❌ Thêm vào giỏ hàng thất bại: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setAddingToCart(prev => ({ ...prev, [productId]: false }));
+    }
+  };
+
+  const ProductCard = ({ product }) => {
+    const isOutOfStock = !product.countInStock || product.countInStock === 0;
+    
+    return (
+      <Link to={`/products/${product._id}`} className="bg-white rounded-lg border border-gray-200 p-3 transition-all hover:shadow-md flex flex-col h-full group cursor-pointer">
+        <div className="relative mb-3 aspect-[3/4] overflow-hidden rounded-md">
+          <img 
+            src={product.image} 
+            alt={product.name} 
+            className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${isOutOfStock ? 'opacity-50 grayscale' : ''}`}
+            onError={(e) => e.target.src = 'https://via.placeholder.com/300x400?text=Book'}
+          />
+          {isOutOfStock ? (
+            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+              <span className="bg-red-600 text-white px-4 py-2 rounded-full text-sm font-bold">
+                HẾT HÀNG
+              </span>
+            </div>
+          ) : (
+            <div className="absolute top-2 left-2 bg-[#27ae60] text-white text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm">
+              Mới
+            </div>
+          )}
         </div>
-      </div>
-      <div className="flex flex-col flex-grow">
-        <h3 className="text-sm font-medium text-gray-800 line-clamp-2 h-10 mb-1 leading-tight">
-          {product.name}
-        </h3>
-        <div className="mt-2">
-          <div className="text-[#d72e2e] font-bold text-lg mb-0.5">
-            {product.price?.toLocaleString()}đ
+        <div className="flex flex-col flex-grow">
+          <h3 className="text-sm font-medium text-gray-800 line-clamp-2 h-10 mb-1 leading-tight group-hover:text-red-600">
+            {product.name}
+          </h3>
+          
+          <div className="mt-2">
+            <div className="text-[#d72e2e] font-bold text-lg mb-0.5">
+              {product.price?.toLocaleString()}đ
+            </div>
+            <div className={`text-[11px] mb-3 ${isOutOfStock ? 'text-red-600 font-bold' : product.countInStock < 10 ? 'text-orange-600' : 'text-gray-500'}`}>
+              {isOutOfStock ? '❌ Hết hàng' : `Còn: ${product.countInStock} sản phẩm`}
+              {!isOutOfStock && product.countInStock < 10 && ' ⚠️'}
+            </div>
           </div>
-          <div className="text-[11px] text-gray-500 mb-3">
-            Còn: {product.countInStock || 50} sản phẩm
+          
+          <div className="flex gap-2">
+            <button 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isOutOfStock) {
+                  handleAddToCart(product._id, e);
+                }
+              }}
+              disabled={addingToCart[product._id] || isOutOfStock}
+              className={`flex-1 py-2 rounded-md font-bold text-xs transition-colors uppercase flex items-center justify-center gap-1 ${
+                isOutOfStock 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-[#d72e2e] text-white hover:bg-red-700'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {isOutOfStock ? (
+                <>
+                  <span>Hết hàng</span>
+                </>
+              ) : addingToCart[product._id] ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Thêm...</span>
+                </>
+              ) : (
+                <>
+                  <FaShoppingCart size={12} />
+                  <span>Giỏ hàng</span>
+                </>
+              )}
+            </button>
+            <button className="px-3 bg-gray-100 text-gray-700 rounded-md font-bold text-xs hover:bg-gray-200 transition-colors">
+              Chi tiết
+            </button>
           </div>
         </div>
-        <button className="w-full bg-[#d72e2e] text-white py-2 rounded-md font-bold text-sm hover:bg-red-700 transition-colors uppercase">
-          Thêm vào giỏ
-        </button>
-      </div>
-    </div>
-  );
+      </Link>
+    );
+  };
 
   const FilterBar = () => (
     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-8 flex items-center justify-between">
@@ -117,7 +193,7 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-[#f8f9fa] font-sans flex flex-col">
       
-      {/* 1. NAVIGATION - KHÔNG STICKY, chỉ là thanh bình thường */}
+      {/* 1. NAVIGATION */}
       <nav className="bg-white border-t border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center space-x-10 py-3">

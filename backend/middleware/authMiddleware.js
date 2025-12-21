@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import User from '../models/userModel.js';
+import Customer from '../models/customerModel.js'; // ✅ ĐÚNG: Dùng Customer thay vì User
 
 // Middleware bảo vệ route (yêu cầu đăng nhập)
 const protect = async (req, res, next) => {
@@ -14,28 +14,35 @@ const protect = async (req, res, next) => {
             // Lấy token
             token = req.headers.authorization.split(' ')[1];
             
+            console.log('🔐 Token received:', token.substring(0, 20) + '...');
+            
             // Giải mã token để lấy id
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             
-            // Lấy thông tin user (không bao gồm password)
-            req.user = await User.findById(decoded.id).select('-password');
+            console.log('✅ Token decoded, userId:', decoded.id);
+            
+            // ✅ QUAN TRỌNG: Tìm user từ Customer model (không phải User)
+            req.user = await Customer.findById(decoded.id).select('-password');
             
             if (!req.user) {
+                console.error('❌ Customer not found with id:', decoded.id);
                 return res.status(401).json({ 
-                    message: 'Không có quyền truy cập, người dùng không tồn tại' 
+                    message: 'Không tìm thấy người dùng, vui lòng đăng nhập lại' 
                 });
             }
             
+            console.log('✅ User found:', req.user.email);
             next();
         } catch (error) {
-            console.error(error);
+            console.error('❌ Token verification failed:', error.message);
             res.status(401).json({ 
-                message: 'Không có quyền truy cập, token không hợp lệ' 
+                message: 'Token không hợp lệ, vui lòng đăng nhập lại' 
             });
         }
     } else {
+        console.error('❌ No token provided');
         res.status(401).json({ 
-            message: 'Không có quyền truy cập, không tìm thấy token' 
+            message: 'Vui lòng đăng nhập để tiếp tục' 
         });
     }
 };
