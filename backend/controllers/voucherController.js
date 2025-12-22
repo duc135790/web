@@ -1,8 +1,8 @@
+// backend/controllers/voucherController.js - FIXED VERSION
+
 import Voucher from '../models/voucherModel.js';
 
-// @desc    Lấy tất cả voucher đang active
-// @route   GET /api/vouchers
-// @access  Public
+// Lấy tất cả voucher đang active
 export const getActiveVouchers = async (req, res) => {
   try {
     const vouchers = await Voucher.find({ 
@@ -17,9 +17,7 @@ export const getActiveVouchers = async (req, res) => {
   }
 };
 
-// @desc    Kiểm tra và áp dụng voucher
-// @route   POST /api/vouchers/apply
-// @access  Public
+// Kiểm tra và áp dụng voucher
 export const applyVoucher = async (req, res) => {
   try {
     const { code, orderTotal } = req.body;
@@ -70,7 +68,6 @@ export const applyVoucher = async (req, res) => {
       });
     }
     
-    // Tính giá trị giảm giá
     let discountAmount = 0;
     if (voucher.type === 'fixed') {
       discountAmount = voucher.discount;
@@ -92,9 +89,7 @@ export const applyVoucher = async (req, res) => {
   }
 };
 
-// @desc    Tăng số lần sử dụng voucher
-// @route   PUT /api/vouchers/:id/use
-// @access  Private
+// Tăng số lần sử dụng voucher
 export const useVoucher = async (req, res) => {
   try {
     const voucher = await Voucher.findById(req.params.id);
@@ -117,9 +112,7 @@ export const useVoucher = async (req, res) => {
   }
 };
 
-// @desc    Tạo voucher mới (Admin)
-// @route   POST /api/vouchers
-// @access  Private/Admin
+// Tạo voucher mới (Admin)
 export const createVoucher = async (req, res) => {
   try {
     const { code, description, discount, type, minOrder, maxUses, startDate, endDate } = req.body;
@@ -148,9 +141,7 @@ export const createVoucher = async (req, res) => {
   }
 };
 
-// @desc    Cập nhật voucher (Admin)
-// @route   PUT /api/vouchers/:id
-// @access  Private/Admin
+// Cập nhật voucher (Admin)
 export const updateVoucher = async (req, res) => {
   try {
     const voucher = await Voucher.findById(req.params.id);
@@ -179,10 +170,7 @@ export const updateVoucher = async (req, res) => {
   }
 };
 
-// ✅ ẨN/HIỆN VOUCHER (thay vì xóa)
-// @desc    Ẩn/Hiện voucher
-// @route   PUT /api/vouchers/:id/toggle
-// @access  Private/Admin
+// ✅ ẨN/HIỆN VOUCHER
 export const toggleVoucherVisibility = async (req, res) => {
   try {
     const voucher = await Voucher.findById(req.params.id);
@@ -204,9 +192,7 @@ export const toggleVoucherVisibility = async (req, res) => {
   }
 };
 
-// @desc    Xóa voucher (Admin) - GIỮ LẠI CHO TRƯỜNG HỢP ĐẶC BIỆT
-// @route   DELETE /api/vouchers/:id
-// @access  Private/Admin
+// Xóa voucher (Admin) - GIỮ LẠI CHO TRƯỜNG HỢP ĐẶC BIỆT
 export const deleteVoucher = async (req, res) => {
   try {
     const voucher = await Voucher.findById(req.params.id);
@@ -223,9 +209,7 @@ export const deleteVoucher = async (req, res) => {
   }
 };
 
-// @desc    Lấy tất cả voucher (Admin)
-// @route   GET /api/vouchers/admin/all
-// @access  Private/Admin
+// Lấy tất cả voucher (Admin)
 export const getAllVouchersAdmin = async (req, res) => {
   try {
     const vouchers = await Voucher.find({}).sort({ createdAt: -1 });

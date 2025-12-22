@@ -1,8 +1,9 @@
+// ============================================
+// frontend/src/utils/api.js - FIXED
+// ============================================
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-console.log('🔗 API Base URL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -47,9 +48,7 @@ export const authAPI = {
 
 export const productsAPI = {
   getProducts: (keyword = '', category = '') => api.get('/products', { params: { keyword, category } }),
-  
   getProductById: (id) => api.get(`/products/${id}`),
-  
   getAllProducts: () => api.get('/products/admin/all'),
   createProduct: (productData) => api.post('/products', productData),
   updateProduct: (id, productData) => api.put(`/products/${id}`, productData),
@@ -63,9 +62,12 @@ export const ordersAPI = {
   createOrder: (orderData) => api.post('/orders', orderData),
   getMyOrders: () => api.get('/orders/myorders'),
   getOrderById: (id) => api.get(`/orders/${id}`),
-  getAllOrders: () => api.get('/orders'),
+  // ✅ Sửa getAllOrders để nhận searchTerm
+  getAllOrders: (searchTerm = '') => api.get('/orders', { params: { search: searchTerm } }),
   updateStatus: (id, orderStatus) => api.put(`/orders/${id}/status`, { orderStatus }),
   updateOrderToDelivered: (id) => api.put(`/orders/${id}/deliver`),
+  // ✅ Thêm API cập nhật thanh toán
+  updatePaymentStatus: (id, isPaid) => api.put(`/orders/${id}/payment`, { isPaid }),
   cancelOrder: (id) => api.delete(`/orders/${id}`),
   
   // Stats
@@ -88,7 +90,16 @@ export const vouchersAPI = {
   createVoucher: (voucherData) => api.post('/vouchers/create', voucherData),
   updateVoucher: (id, voucherData) => api.put(`/vouchers/${id}`, voucherData),
   deleteVoucher: (id) => api.delete(`/vouchers/${id}`),
-  useVoucher: (id) => api.put(`/vouchers/${id}/use`)
+  useVoucher: (id) => api.put(`/vouchers/${id}/use`),
+  // ✅ Thêm API ẩn/hiện voucher
+  toggleVoucher: (id) => api.put(`/vouchers/${id}/toggle`)
+};
+
+export const customersAPI = {
+  getAllCustomers: () => api.get('/customers/all'),
+  toggleAdmin: (id) => api.put(`/customers/${id}/toggle-admin`),
+  // ✅ Thêm API vô hiệu hóa
+  toggleActive: (id) => api.put(`/customers/${id}/toggle-active`)
 };
 
 export default api;

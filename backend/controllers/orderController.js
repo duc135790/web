@@ -1,11 +1,11 @@
+// backend/controllers/orderController.js - FIXED VERSION
+
 import Order from '../models/orderModel.js';
 import Customer from '../models/customerModel.js';
 
-//@desc Tao don hang moi
-//@route POST /api/orders
-//@access Private
+// Tạo đơn hàng mới
 const addOrderItems = async (req, res) => {
-    const { shippingAddress, paymentMethod, totalPrice } = req.body;
+    const { shippingAddress, paymentMethod, totalPrice, bankTransferInfo } = req.body;
     
     const customer = await Customer.findById(req.user._id);
     const cartItems = customer.cart;
@@ -13,7 +13,7 @@ const addOrderItems = async (req, res) => {
     if(cartItems && cartItems.length === 0){
         res.status(400);
         throw new Error('Không có sản phẩm nào trong giỏ hàng');
-    }else{
+    } else {
         const order = new Order({
             orderItems: cartItems.map((item) =>({
                 ...item,
@@ -24,6 +24,11 @@ const addOrderItems = async (req, res) => {
             shippingAddress,
             paymentMethod,
             totalPrice,
+            // ✅ Nếu chuyển khoản, mặc định là đã thanh toán
+            isPaid: paymentMethod === 'BANK' ? true : false,
+            paidAt: paymentMethod === 'BANK' ? Date.now() : undefined,
+            // ✅ Lưu thông tin chuyển khoản
+            bankTransferInfo: paymentMethod === 'BANK' ? bankTransferInfo : undefined
         });
 
         const createdOrder = await order.save();
@@ -35,25 +40,55 @@ const addOrderItems = async (req, res) => {
     }
 };
 
-// @desc    Lấy các đơn hàng của người dùng đã đăng nhập
-// @route   GET /api/orders/myorders
-// @access  Private
+// ✅ Cập nhật trạng thái thanh toán
+const updatePaymentStatus = async (req, res) => {
+  try {
+    const { isPaid } = req.body;
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' });
+    }
+
+    order.isPaid = isPaid;
+    order.paidAt = isPaid ? Date.now() : null;
+
+    const updatedOrder = await order.save();
+    res.json(updatedOrder);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Lấy các đơn hàng của người dùng đã đăng nhập
 const getMyOrders = async (req, res) => {
-  const orders = await Order.find({ user: req.user._id });
+  const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
   res.json(orders);
 };
 
-// @desc    Lấy TẤT CẢ đơn hàng
-// @route   GET /api/orders
-// @access  Private/Admin
+// ✅ Lấy TẤT CẢ đơn hàng (có tìm kiếm theo mã)
 const getOrders = async (req, res) => {
-  const orders = await Order.find({}).populate('user', 'id name email');
-  res.json(orders);
+  try {
+    const { search } = req.query;
+    
+    let query = {};
+    
+    // ✅ Tìm kiếm theo mã đơn hàng
+    if (search) {
+      query._id = { $regex: search, $options: 'i' };
+    }
+    
+    const orders = await Order.find(query)
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 });
+      
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-// @desc    Cập nhật trạng thái đơn hàng
-// @route   PUT /api/orders/:id/status
-// @access  Private/Admin
+// Cập nhật trạng thái đơn hàng
 const updateOrderStatus = async (req, res) => {
   const { orderStatus } = req.body;
   const order = await Order.findById(req.params.id);
@@ -61,7 +96,6 @@ const updateOrderStatus = async (req, res) => {
   if (order) {
     order.orderStatus = orderStatus;
     
-    // Tự động cập nhật isDelivered nếu trạng thái là "Đã giao"
     if (orderStatus === 'Đã giao') {
       order.isDelivered = true;
       order.deliveredAt = Date.now();
@@ -75,9 +109,6 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-// @desc    Cập nhật trạng thái đơn hàng (Đã giao) - giữ lại cho tương thích
-// @route   PUT /api/orders/:id/deliver
-// @access  Private/Admin
 const updateOrderToDelivered = async (req, res) => {
   const order = await Order.findById(req.params.id);
 
@@ -93,9 +124,6 @@ const updateOrderToDelivered = async (req, res) => {
   }
 };
 
-// @desc    Lấy đơn hàng bằng ID
-// @route   GET /api/orders/:id
-// @access  Private
 const getOrderById = async (req, res) => {
   const order = await Order.findById(req.params.id).populate(
     'user',
@@ -115,9 +143,6 @@ const getOrderById = async (req, res) => {
   }
 };
 
-// @desc    Xóa đơn hàng (chỉ dùng khi cần thiết)
-// @route   DELETE /api/orders/:id
-// @access  Private
 const deleteOrder = async (req, res) => {
   const order = await Order.findById(req.params.id);
 
@@ -130,12 +155,10 @@ const deleteOrder = async (req, res) => {
   }
 };
 
-// @desc    Thống kê doanh thu theo thời gian
-// @route   GET /api/orders/stats/revenue
-// @access  Private/Admin
+// ✅ Thống kê doanh thu theo thời gian (theo tháng/năm)
 const getRevenueStats = async (req, res) => {
   try {
-    const { period = 'month' } = req.query; // day, week, month, year
+    const { period = 'month' } = req.query;
     
     let groupBy;
     switch(period) {
@@ -183,21 +206,19 @@ const getRevenueStats = async (req, res) => {
   }
 };
 
-// @desc    Thống kê khách hàng mua nhiều nhất
-// @route   GET /api/orders/stats/top-customers
-// @access  Private/Admin
+// ✅ Thống kê khách hàng mua nhiều nhất (theo số lượng đơn)
 const getTopCustomers = async (req, res) => {
   try {
     const topCustomers = await Order.aggregate([
       {
         $group: {
           _id: '$user',
-          totalOrders: { $sum: 1 },
+          totalOrders: { $sum: 1 }, // ✅ Đếm số đơn hàng
           totalSpent: { $sum: '$totalPrice' },
           averageOrder: { $avg: '$totalPrice' }
         }
       },
-      { $sort: { totalSpent: -1 } },
+      { $sort: { totalOrders: -1 } }, // ✅ Sắp xếp theo số đơn hàng
       { $limit: 10 },
       {
         $lookup: {
@@ -227,9 +248,6 @@ const getTopCustomers = async (req, res) => {
   }
 };
 
-// @desc    Thống kê tổng quan
-// @route   GET /api/orders/stats/overview
-// @access  Private/Admin
 const getOrdersOverview = async (req, res) => {
   try {
     const totalOrders = await Order.countDocuments();
@@ -272,5 +290,6 @@ export {
   deleteOrder,
   getRevenueStats,
   getTopCustomers,
-  getOrdersOverview
+  getOrdersOverview,
+  updatePaymentStatus // ✅ Export mới
 };
