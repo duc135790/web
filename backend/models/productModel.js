@@ -1,35 +1,38 @@
+// backend/models/productModel.js - WITH isHidden FIELD
+
 import mongoose from "mongoose";
+
 const reviewSchema = mongoose.Schema(
     {
-        name: { type: String, required: true }, // Tên người bình luận
+        name: { type: String, required: true },
         rating: { type: Number, required: true },
         comment: { type: String, required: true },
         user: {
             type: mongoose.Schema.Types.ObjectId,
             required: true,
-            ref: 'Customer', // Tham chiếu đến bảng Customer
+            ref: 'Customer',
         },
     },
     {
         timestamps: true,
     }
 );
+
 const productSchema = mongoose.Schema(
     {
-        name: { type: String, required: true }, // Tên sách
-        image: { type: String, required: true }, // Ảnh bìa sách
-        author: { type: String, required: true }, // Tác giả (Nguyễn Nhật Ánh, J.K. Rowling...)
+        name: { type: String, required: true },
+        image: { type: String, required: true },
+        author: { type: String, required: true },
         
-        category: { type: String, required: true }, // Thể loại (Văn học, Kinh tế, Thiếu nhi...)
-        description: { type: String, required: true }, // Tóm tắt nội dung
-        publisher: { type: String, required: true }, // Nhà xuất bản (NXB Trẻ, Kim Đồng...)
-        publicationYear: { type: Number }, // Năm xuất bản
-        pageCount: { type: Number }, // Số trang
-        language: { type: String, default: 'Tiếng Việt' }, // Ngôn ngữ
+        category: { type: String, required: true },
+        description: { type: String, required: true },
+        publisher: { type: String, required: true },
+        publicationYear: { type: Number },
+        pageCount: { type: Number },
+        language: { type: String, default: 'Tiếng Việt' },
         
         price: { type: Number, required: true, default: 0 },
         
-        //trường tồn kho
         countInStock: { type: Number, required: true, default: 0 },
         reviews: [reviewSchema],
         rating: {
@@ -42,6 +45,13 @@ const productSchema = mongoose.Schema(
             required: true,
             default: 0,
         },
+        
+        // ✅ FIELD ẨN/HIỆN SẢN PHẨM
+        isHidden: {
+            type: Boolean,
+            default: false
+        },
+        
         // SEO
         metaTitle: { type: String },
         metaDescription: { type: String },

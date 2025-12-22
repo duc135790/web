@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { productsAPI } from '../utils/api';
-import { FaPlus, FaEdit, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaEye, FaEyeSlash, FaSearch } from 'react-icons/fa';
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all'); // all, visible, hidden
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchTerm, setSearchTerm] = useState(''); // ✅ SEARCH STATE
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -107,9 +108,23 @@ const AdminProducts = () => {
     });
   };
 
+  // ✅ LỌC SẢN PHẨM THEO TRẠNG THÁI VÀ TÌM KIẾM
   const filteredProducts = products.filter(product => {
-    if (filterStatus === 'visible') return !product.isHidden;
-    if (filterStatus === 'hidden') return product.isHidden;
+    // Filter by status
+    if (filterStatus === 'visible' && product.isHidden) return false;
+    if (filterStatus === 'hidden' && !product.isHidden) return false;
+    
+    // ✅ Filter by search term
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase();
+      return (
+        product.name?.toLowerCase().includes(search) ||
+        product.author?.toLowerCase().includes(search) ||
+        product.category?.toLowerCase().includes(search) ||
+        product.brand?.toLowerCase().includes(search)
+      );
+    }
+    
     return true;
   });
 
@@ -127,7 +142,19 @@ const AdminProducts = () => {
           </p>
         </div>
         
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          {/* ✅ SEARCH INPUT */}
+          <div className="relative">
+            <FaSearch className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm tên sách, tác giả..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border-2 border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 w-64"
+            />
+          </div>
+          
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -151,6 +178,22 @@ const AdminProducts = () => {
           </button>
         </div>
       </div>
+
+      {/* ✅ HIỂN THỊ THÔNG BÁO KHI TÌM KIẾM */}
+      {searchTerm && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+          <p className="text-sm text-blue-700">
+            <FaSearch className="inline mr-2" />
+            Tìm kiếm: "<strong>{searchTerm}</strong>" - {filteredProducts.length} kết quả
+          </p>
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-blue-600 hover:text-blue-800 text-sm font-semibold"
+          >
+            Xóa tìm kiếm
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
@@ -236,6 +279,17 @@ const AdminProducts = () => {
           </table>
         </div>
       </div>
+
+      {/* ✅ THÔNG BÁO KHI KHÔNG TÌM THẤY */}
+      {filteredProducts.length === 0 && (
+        <div className="text-center py-12 bg-white rounded-lg shadow mt-4">
+          <p className="text-gray-600">
+            {searchTerm 
+              ? `Không tìm thấy sản phẩm với từ khóa "${searchTerm}"` 
+              : 'Không có sản phẩm nào'}
+          </p>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">

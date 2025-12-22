@@ -1,3 +1,5 @@
+// backend/controllers/productController.js - FIXED VERSION
+
 import Product from "../models/productModel.js";
 import Order from '../models/orderModel.js';
 
@@ -160,28 +162,43 @@ const updateProductStock = async (req, res) => {
   }
 };
 
-// ✅ ẨN/HIỆN SẢN PHẨM (thay vì xóa)
+// ✅ ẨN/HIỆN SẢN PHẨM (FIXED - Hoạt động đúng)
 // @desc    Ẩn/Hiện sản phẩm
 // @route   PUT /api/products/:id/toggle-visibility
 // @access  Private/Admin
 const toggleProductVisibility = async (req, res) => {
   try {
+    console.log('🔄 Toggle visibility for product:', req.params.id);
+    
     const product = await Product.findById(req.params.id);
 
-    if (product) {
-      product.isHidden = !product.isHidden;
-      const updatedProduct = await product.save();
-      
-      res.json({
-        message: product.isHidden ? 'Đã ẩn sản phẩm' : 'Đã hiển thị sản phẩm',
-        product: updatedProduct
-      });
-    } else {
-      res.status(404);
-      throw new Error('Không tìm thấy sách');
+    if (!product) {
+      console.log('❌ Product not found');
+      return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
     }
+
+    console.log('📦 Current isHidden:', product.isHidden);
+    
+    // ✅ TOGGLE: Nếu undefined hoặc false → true, nếu true → false
+    product.isHidden = !product.isHidden;
+    
+    console.log('📦 New isHidden:', product.isHidden);
+    
+    const updatedProduct = await product.save();
+    
+    console.log('✅ Product updated successfully');
+    
+    res.json({
+      success: true,
+      message: product.isHidden ? 'Đã ẩn sản phẩm' : 'Đã hiển thị sản phẩm',
+      product: updatedProduct
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('❌ Toggle visibility error:', error);
+    res.status(400).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 };
 

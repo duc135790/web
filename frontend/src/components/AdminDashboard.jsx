@@ -1,4 +1,4 @@
-// frontend/src/components/AdminDashboard.jsx - FIXED (Sửa top customers theo số đơn)
+// frontend/src/components/AdminDashboard.jsx - FIXED VERSION
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -9,35 +9,62 @@ const AdminDashboard = () => {
   const [topCustomers, setTopCustomers] = useState([]);
   const [bestSelling, setBestSelling] = useState([]);
   const [revenue, setRevenue] = useState([]);
+  const [totalProducts, setTotalProducts] = useState(0); // ✅ TỔNG SẢN PHẨM
   const [loading, setLoading] = useState(true);
-  const [revenuePeriod, setRevenuePeriod] = useState('month'); // ✅ State cho period
+  const [revenuePeriod, setRevenuePeriod] = useState('month');
 
   useEffect(() => {
     fetchDashboardData();
-  }, [revenuePeriod]); // ✅ Refetch khi period thay đổi
+  }, [revenuePeriod]);
 
   const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      const [overviewRes, customersRes, productsRes, revenueRes] = await Promise.all([
+      const [overviewRes, customersRes, productsRes, revenueRes, allProductsRes] = await Promise.all([
         axios.get('http://localhost:5000/api/orders/stats/overview', config),
         axios.get('http://localhost:5000/api/orders/stats/top-customers', config),
         axios.get('http://localhost:5000/api/products/stats/best-selling', config),
-        // ✅ Truyền period vào API
-        axios.get(`http://localhost:5000/api/orders/stats/revenue?period=${revenuePeriod}`, config)
+        axios.get(`http://localhost:5000/api/orders/stats/revenue?period=${revenuePeriod}`, config),
+        axios.get('http://localhost:5000/api/products/admin/all', config) // ✅ LẤY TỔNG SẢN PHẨM
       ]);
 
       setOverview(overviewRes.data);
       setTopCustomers(customersRes.data);
       setBestSelling(productsRes.data);
       setRevenue(revenueRes.data);
+      setTotalProducts(allProductsRes.data.count || allProductsRes.data.products?.length || 0); // ✅ SET TỔNG
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ HÀM TẠO DỮ LIỆU ĐẦY ĐỦ 12 THÁNG
+  const prepareChartData = () => {
+    const currentYear = new Date().getFullYear();
+    const monthsData = Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      year: currentYear,
+      totalRevenue: 0,
+      orderCount: 0
+    }));
+
+    revenue.forEach(item => {
+      const monthIndex = item._id.month - 1;
+      if (monthIndex >= 0 && monthIndex < 12 && item._id.year === currentYear) {
+        monthsData[monthIndex] = {
+          month: item._id.month,
+          year: item._id.year,
+          totalRevenue: item.totalRevenue,
+          orderCount: item.orderCount
+        };
+      }
+    });
+
+    return monthsData;
   };
 
   if (loading) {
@@ -47,6 +74,9 @@ const AdminDashboard = () => {
       </div>
     );
   }
+
+  const chartData = prepareChartData();
+  const maxRevenue = Math.max(...chartData.map(d => d.totalRevenue));
 
   return (
     <div className="space-y-6">
@@ -76,11 +106,12 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        {/* ✅ CARD TỔNG SẢN PHẨM */}
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-lg p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm mb-1">Sản phẩm bán chạy</p>
-              <p className="text-3xl font-bold">{bestSelling.length}</p>
+              <p className="text-purple-100 text-sm mb-1">Tổng sản phẩm</p>
+              <p className="text-3xl font-bold">{totalProducts}</p>
             </div>
             <FaTrophy className="text-5xl text-purple-200 opacity-50" />
           </div>
@@ -114,7 +145,7 @@ const AdminDashboard = () => {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* ✅ Top Customers - Hiển thị theo SỐ ĐƠN HÀNG */}
+        {/* Top Customers */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             <FaUsers className="text-green-600" />
@@ -160,7 +191,7 @@ const AdminDashboard = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             <FaTrophy className="text-yellow-600" />
-            Sản phẩm bán chạy (Theo số lượng)
+            Sản phẩm bán chạy
           </h3>
           <div className="space-y-3">
             {bestSelling.map((product, index) => (
@@ -186,15 +217,14 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* ✅ Revenue Chart với filter period */}
+      {/* ✅ BIỂU ĐỒ DOANH THU 12 THÁNG VỚI TRỤC X */}
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <FaChartLine className="text-purple-600" />
-            Doanh thu
+            Doanh thu theo tháng (Năm {new Date().getFullYear()})
           </h3>
           
-          {/* ✅ Dropdown chọn period */}
           <div className="flex items-center gap-2">
             <FaCalendar className="text-gray-500" />
             <select
@@ -209,37 +239,85 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        <div className="space-y-2">
-          {revenue.map((item, index) => {
-            let displayLabel;
-            if (revenuePeriod === 'day') {
-              displayLabel = `${item._id.day}/${item._id.month}/${item._id.year}`;
-            } else if (revenuePeriod === 'month') {
-              displayLabel = `Tháng ${item._id.month}/${item._id.year}`;
-            } else {
-              displayLabel = `Năm ${item._id.year}`;
-            }
+        {/* ✅ BIỂU ĐỒ CỘT VỚI TRỤC X RÕ RÀNG */}
+        <div className="space-y-4">
+          {/* Legends */}
+          <div className="flex justify-end gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-gradient-to-r from-blue-400 to-blue-600 rounded"></div>
+              <span className="text-gray-600">Doanh thu</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-orange-400 rounded"></div>
+              <span className="text-gray-600">Số đơn</span>
+            </div>
+          </div>
 
-            const maxRevenue = Math.max(...revenue.map(r => r.totalRevenue));
-            const widthPercent = (item.totalRevenue / maxRevenue) * 100;
+          {/* Chart */}
+          <div className="relative pt-4">
+            <div className="flex items-end justify-between h-64 gap-1">
+              {chartData.map((item, index) => {
+                const heightPercent = maxRevenue > 0 ? (item.totalRevenue / maxRevenue) * 100 : 0;
+                
+                return (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                    {/* Bar */}
+                    <div className="w-full flex flex-col items-center justify-end h-full">
+                      <div className="relative w-full group cursor-pointer">
+                        <div 
+                          className="w-full bg-gradient-to-t from-blue-400 to-blue-600 rounded-t transition-all hover:opacity-80"
+                          style={{ height: `${heightPercent}%`, minHeight: item.totalRevenue > 0 ? '4px' : '0' }}
+                        >
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                            <div className="bg-gray-800 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                              <p className="font-bold">Tháng {item.month}</p>
+                              <p className="text-green-300">{item.totalRevenue.toLocaleString()}₫</p>
+                              <p className="text-orange-300">{item.orderCount} đơn</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Order count indicator */}
+                        {item.orderCount > 0 && (
+                          <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-orange-400 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">
+                            {item.orderCount}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* ✅ TRỤC X: Tên tháng */}
+                    <div className="text-xs font-semibold text-gray-600 text-center">
+                      T{item.month}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-            return (
-              <div key={index} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium text-gray-700">{displayLabel}</span>
-                  <span className="font-bold text-green-600">
-                    {item.totalRevenue.toLocaleString()}₫ ({item.orderCount} đơn)
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full transition-all duration-500"
-                    style={{ width: `${widthPercent}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+          {/* Summary Stats */}
+          <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+            <div className="text-center">
+              <p className="text-xs text-gray-500 mb-1">Tổng doanh thu</p>
+              <p className="text-lg font-bold text-green-600">
+                {chartData.reduce((sum, item) => sum + item.totalRevenue, 0).toLocaleString()}₫
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-500 mb-1">Tổng đơn hàng</p>
+              <p className="text-lg font-bold text-blue-600">
+                {chartData.reduce((sum, item) => sum + item.orderCount, 0)}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-500 mb-1">Trung bình/tháng</p>
+              <p className="text-lg font-bold text-purple-600">
+                {Math.round(chartData.reduce((sum, item) => sum + item.totalRevenue, 0) / 12).toLocaleString()}₫
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -248,7 +326,7 @@ const AdminDashboard = () => {
         <h3 className="text-lg font-bold mb-4">Đơn hàng gần đây</h3>
         <div className="space-y-3">
           {overview?.recentOrders?.map((order) => (
-            <div key={order._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div key={order._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
               <div>
                 <p className="font-semibold text-gray-800">#{order._id.slice(-8)}</p>
                 <p className="text-sm text-gray-600">{order.user?.name}</p>
