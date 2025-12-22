@@ -1,4 +1,4 @@
-// frontend/src/components/AdminOrders.jsx - FINAL FIXED VERSION
+// frontend/src/components/AdminOrders.jsx - FIXED SEARCH
 
 import { useState, useEffect } from 'react';
 import { ordersAPI } from '../utils/api';
@@ -14,11 +14,11 @@ const AdminOrders = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [searchTerm]);
+  }, []); // ✅ Chỉ fetch 1 lần khi mount
 
   const fetchOrders = async () => {
     try {
-      const response = await ordersAPI.getAllOrders(searchTerm);
+      const response = await ordersAPI.getAllOrders(''); // ✅ Lấy tất cả đơn hàng
       setOrders(response.data);
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -38,7 +38,6 @@ const AdminOrders = () => {
     }
   };
 
-  // ✅ XÁC NHẬN/HỦY XÁC NHẬN THANH TOÁN - HOÀN TOÀN FIXED
   const handleUpdatePayment = async (orderId, isPaid) => {
     const action = isPaid ? 'xác nhận đã thanh toán' : 'hủy xác nhận thanh toán';
     if (!window.confirm(`Bạn có chắc chắn muốn ${action} cho đơn hàng này?`)) return;
@@ -72,9 +71,29 @@ const AdminOrders = () => {
     }
   };
 
+  // ✅ LỌC ĐƠN HÀNG THEO TRẠNG THÁI VÀ TÌM KIẾM - CLIENT SIDE
   const filteredOrders = orders.filter(order => {
-    if (filterStatus === 'all') return true;
-    return order.orderStatus === filterStatus || (!order.orderStatus && filterStatus === 'Đang xử lý');
+    // Lọc theo trạng thái
+    if (filterStatus !== 'all') {
+      const orderStatus = order.orderStatus || 'Đang xử lý';
+      if (orderStatus !== filterStatus) return false;
+    }
+
+    // ✅ TÌM KIẾM THEO MÃ ĐƠN HÀNG
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase().trim();
+      const orderId = order._id.toLowerCase();
+      
+      // Tìm kiếm theo:
+      // 1. Toàn bộ ID
+      // 2. 6-8 ký tự cuối của ID
+      // 3. Bất kỳ phần nào của ID
+      return orderId.includes(search) || 
+             orderId.slice(-8).includes(search) ||
+             orderId.slice(-6).includes(search);
+    }
+    
+    return true;
   });
 
   if (loading) {
@@ -99,8 +118,17 @@ const AdminOrders = () => {
               placeholder="Tìm mã đơn hàng..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border-2 border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500"
+              className="pl-10 pr-4 py-2 border-2 border-gray-300 rounded-md text-sm focus:outline-none focus:border-blue-500 w-64"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           <select
@@ -118,6 +146,23 @@ const AdminOrders = () => {
         </div>
       </div>
 
+      {/* ✅ THÔNG BÁO KHI TÌM KIẾM */}
+      {searchTerm && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+          <p className="text-sm text-blue-700">
+            <FaSearch className="inline mr-2" />
+            Tìm kiếm: "<strong>{searchTerm}</strong>" - {filteredOrders.length} kết quả
+          </p>
+          <button
+            onClick={() => setSearchTerm('')}
+            className="text-blue-600 hover:text-blue-800 text-sm font-semibold"
+          >
+            Xóa tìm kiếm
+          </button>
+        </div>
+      )}
+
+      {/* DANH SÁCH ĐƠN HÀNG */}
       <div className="space-y-4">
         {filteredOrders.map((order) => (
           <div key={order._id} className="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
@@ -126,7 +171,7 @@ const AdminOrders = () => {
                 <div>
                   <div className="flex items-center gap-3 mb-2">
                     <FaBox className="text-blue-600 text-xl" />
-                    <h3 className="font-bold text-lg">Đơn hàng #{order._id.slice(-6)}</h3>
+                    <h3 className="font-bold text-lg">Đơn hàng #{order._id.slice(-8)}</h3>
                   </div>
                   <p className="text-sm text-gray-500">
                     {new Date(order.createdAt).toLocaleString('vi-VN')}
@@ -228,7 +273,6 @@ const AdminOrders = () => {
                 </div>
               </div>
 
-              {/* ✅ THÔNG TIN THANH TOÁN - HOÀN TOÀN FIXED */}
               <div className="mt-4 p-4 bg-yellow-50 rounded-lg border-2 border-yellow-200">
                 <div className="flex items-center justify-between">
                   <div>
@@ -240,7 +284,6 @@ const AdminOrders = () => {
                     </p>
                   </div>
                   
-                  {/* ✅ NÚT XÁC NHẬN/HỦY XÁC NHẬN - HIỆN VỚI TẤT CẢ PHƯƠNG THỨC */}
                   <button
                     onClick={() => handleUpdatePayment(order._id, !order.isPaid)}
                     className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors ${
@@ -269,10 +312,13 @@ const AdminOrders = () => {
         ))}
       </div>
 
+      {/* THÔNG BÁO KHI KHÔNG TÌM THẤY */}
       {filteredOrders.length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-600">
-            {searchTerm ? `Không tìm thấy đơn hàng với mã "${searchTerm}"` : 'Không có đơn hàng nào'}
+            {searchTerm 
+              ? `Không tìm thấy đơn hàng với mã "${searchTerm}"` 
+              : 'Không có đơn hàng nào'}
           </p>
         </div>
       )}
