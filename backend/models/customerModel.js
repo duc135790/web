@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { hashPassword } from "../utils/hashPassword.js";
 
-
 //tao schema cho gio hang
 const cartItemSchema = mongoose.Schema({
     name: {type: String, required: true},
@@ -12,9 +11,10 @@ const cartItemSchema = mongoose.Schema({
     product: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
-        ref: 'Product', //tham chieu den model 'Product'
+        ref: 'Product',
     },
 });
+
 const customerSchema = mongoose.Schema(
   {
     email: { type: String, required: true, unique: true },
@@ -22,29 +22,27 @@ const customerSchema = mongoose.Schema(
     phone: { type: String, required: false },
     password: { type: String, required: true },
     isAdmin: { type: Boolean, default: false },
+    // ✅ THÊM FIELD isActive
+    isActive: { type: Boolean, default: true },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
-    cart: [cartItemSchema], // Sử dụng schema lồng
+    cart: [cartItemSchema],
   },
-  
   {
     timestamps: true,
   }
 );
+
 customerSchema.pre("save", async function (){
-    // Only hash password if it's been modified (or is new)
     if(!this.isModified("password")){
         return;
     }
-    
-    // Hash the password
     this.password = await hashPassword(this.password);
-    // Mongoose will automatically handle the promise from this async function
 });
 
-//ham matchpasword
 customerSchema.methods.matchPassword = async function (enteredPassword){
     return await bcrypt.compare(enteredPassword, this.password);
 };
+
 const Customer= mongoose.model('Customer', customerSchema);
 export default Customer;

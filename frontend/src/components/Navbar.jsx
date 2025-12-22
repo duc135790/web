@@ -10,13 +10,14 @@ const Navbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   console.log('🔍 Navbar - User:', user);
+  console.log('🔍 Navbar - isAdmin:', user?.isAdmin);
 
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchTerm.trim()) {
       navigate(`/products?keyword=${encodeURIComponent(searchTerm.trim())}`);
       setMobileMenuOpen(false);
-      setSearchTerm(''); // Reset sau khi search
+      setSearchTerm('');
     } else {
       navigate('/products');
     }
@@ -45,6 +46,10 @@ const Navbar = () => {
                 <>
                   <span className="hidden sm:inline">Xin chào, <strong>{user.name || user.email}</strong></span>
                   <span className="sm:hidden"><strong>{user.name || user.email}</strong></span>
+                  {/* ✅ HIỂN THỊ BADGE ADMIN */}
+                  {user.isAdmin && (
+                    <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded font-bold">ADMIN</span>
+                  )}
                   <button 
                     onClick={handleLogout}
                     className="hover:text-red-400 transition-colors"
@@ -103,9 +108,13 @@ const Navbar = () => {
                   <Link to="/my-orders" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-all font-medium">
                     <FaBoxOpen /><span>Đơn hàng</span>
                   </Link>
-                  <Link to="/admin" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-all font-medium">
-                    <FaCog /><span>Quản trị</span>
-                  </Link>
+                  
+                  {/* ✅ CHỈ HIỂN THỊ NẾU isAdmin === true */}
+                  {user.isAdmin && (
+                    <Link to="/admin" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium">
+                      <FaCog /><span>Quản trị</span>
+                    </Link>
+                  )}
                 </>
               )}
             </div>
@@ -162,9 +171,13 @@ const Navbar = () => {
                     <Link to="/my-orders" onClick={closeMobileMenu} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all">
                       <FaBoxOpen /><span>Đơn hàng</span>
                     </Link>
-                    <Link to="/admin" onClick={closeMobileMenu} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all">
-                      <FaCog /><span>Quản trị</span>
-                    </Link>
+                    
+                    {/* ✅ CHỈ HIỂN THỊ NẾU isAdmin === true */}
+                    {user.isAdmin && (
+                      <Link to="/admin" onClick={closeMobileMenu} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all">
+                        <FaCog /><span>Quản trị</span>
+                      </Link>
+                    )}
                   </>
                 )}
               </nav>
