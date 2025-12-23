@@ -40,7 +40,6 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/customers/login', credentials),
   register: (userData) => api.post('/customers', userData),
-  // Thêm chống cache cho profile luôn cho chắc
   getProfile: () => api.get('/customers/profile', { params: { _t: Date.now() } }),
 };
 
@@ -99,7 +98,10 @@ export const vouchersAPI = {
 export const customersAPI = {
   getAllCustomers: () => api.get('/customers/all', { params: { _t: Date.now() } }),
   toggleAdmin: (id) => api.put(`/customers/${id}/toggle-admin`),
-  toggleActive: (id) => api.put(`/customers/${id}/toggle-active`)
+  toggleActive: (id) => api.put(`/customers/${id}/toggle-active`),
+  // ✅ NEW
+  updateProfile: (data) => api.put('/customers/profile', data),
+  updateCustomerByAdmin: (id, data) => api.put(`/customers/${id}/update-info`, data)
 };
 
 export default api;

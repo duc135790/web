@@ -13,6 +13,7 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import MyOrders from './pages/MyOrders';
+import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 
 function App() {
@@ -33,6 +34,7 @@ function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/my-orders" element={<MyOrders />} />
+            <Route path="/profile" element={<Profile />} />
             <Route element={<AdminRoute />}>
                 <Route path="/admin" element={<Admin />} />
             </Route>

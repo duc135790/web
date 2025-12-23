@@ -48,18 +48,22 @@ const Home = () => {
   }, [slides.length]);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const { data } = await axios.get('http://localhost:5000/api/products');
-        setFeaturedProducts(data.slice(0, 4));
-        setNewProducts(data.slice(0, 8));
-        setLoading(false);
-      } catch (error) {
-        setLoading(false);
-      }
-    };
     fetchProducts();
-  }, []);
+  }, []); // ✅ Chỉ fetch lần đầu
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      // ✅ Thêm timestamp để tránh cache
+      const { data } = await axios.get(`http://localhost:5000/api/products?_t=${Date.now()}`);
+      setFeaturedProducts(data.slice(0, 4));
+      setNewProducts(data.slice(0, 8));
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddToCart = async (productId, e) => {
     e.preventDefault();
@@ -74,6 +78,10 @@ const Home = () => {
 
     try {
       await cartAPI.addToCart(productId, 1);
+      
+      // ✅ QUAN TRỌNG: RELOAD LẠI SẢN PHẨM SAU KHI THÊM GIỎ HÀNG
+      await fetchProducts();
+      
       alert('✅ Đã thêm vào giỏ hàng!');
     } catch (error) {
       console.error('❌ Error adding to cart:', error);
@@ -166,7 +174,7 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-[#f8f9fa] font-sans flex flex-col">
       
-      {/* 1. NAVIGATION */}
+      {/* NAVIGATION */}
       <nav className="bg-white border-t border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4">
           <div className="flex justify-center items-center space-x-10 py-3">
@@ -190,7 +198,7 @@ const Home = () => {
         </div>
       </nav>
 
-      {/* 2. BANNER */}
+      {/* BANNER */}
       <section className="relative h-[420px] overflow-hidden">
         {slides.map((slide, index) => (
           <div
@@ -224,7 +232,7 @@ const Home = () => {
         <button onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/20 p-2 rounded-full text-white hover:bg-white/40"><FaChevronRight size={20}/></button>
       </section>
 
-      {/* 3. MAIN CONTENT */}
+      {/* MAIN CONTENT */}
       <main className="container mx-auto px-4 py-8">
         <div className="text-center pt-4 pb-8">
           <h1 className="text-3xl font-black text-gray-800 mb-1 uppercase tracking-tight">Sách Hay Chính Hãng</h1>
@@ -258,7 +266,7 @@ const Home = () => {
         </section>
       </main>
 
-      {/* 4. FOOTER */}
+      {/* FOOTER */}
       <footer className="bg-[#0f172a] text-white pt-16 pb-8 mt-auto">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 mb-16 text-sm">

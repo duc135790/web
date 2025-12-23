@@ -1,12 +1,7 @@
-
-
-
 import Customer from "../models/customerModel.js";
 import generateToken from "../utils/generateToken.js";
 import Product from '../models/productModel.js';
 import Order from '../models/orderModel.js';
-
-// ✅ QUY TẮC SỬA LỖI: Tất cả các hàm đều phải có (req, res, next)
 
 // @desc    Đăng ký khách hàng mới
 // @route   POST /api/customers
@@ -46,13 +41,13 @@ const registerCustomer = async (req, res, next) => {
             throw new Error("Dữ liệu khách hàng không hợp lệ");
         }
     } catch (error) {
-        next(error); // ✅ Đã có 'next' ở tham số, nên dòng này sẽ chạy ngon
+        next(error);
     }
 };
 
 // @desc    Đăng nhập
 // @route   POST /api/customer/login
-const loginCustomer = async (req, res, next) => { // ✅ Thêm 'next'
+const loginCustomer = async (req, res, next) => {
     const { email, password } = req.body;
 
     try {
@@ -77,12 +72,12 @@ const loginCustomer = async (req, res, next) => { // ✅ Thêm 'next'
             throw new Error("Email hoặc mật khẩu không chính xác");
         }
     } catch (error) {
-        next(error); // ✅ Dùng next để báo lỗi chuẩn cho React hiển thị
+        next(error);
     }
 };
 
 // @desc    Lấy giỏ hàng
-const getCustomerCart = async (req, res, next) => { // ✅ Thêm 'next'
+const getCustomerCart = async (req, res, next) => {
     try {
         const customer = await Customer.findById(req.user._id).populate('cart.product');
         
@@ -98,13 +93,11 @@ const getCustomerCart = async (req, res, next) => { // ✅ Thêm 'next'
     }
 };
 
-// @desc    Thêm vào giỏ hàng (Hàm bị lỗi trong ảnh của cậu)
-const addItemToCart = async (req, res, next) => { // ✅ QUAN TRỌNG: Thêm 'next' ở đây
+// @desc    Thêm vào giỏ hàng
+const addItemToCart = async (req, res, next) => {
   try {
     const { productId, quantity } = req.body;
     
-    // console.log("👉 Backend nhận yêu cầu thêm giỏ:", { productId, quantity });
-
     const customer = await Customer.findById(req.user._id);
     const product = await Product.findById(productId);
 
@@ -148,19 +141,17 @@ const addItemToCart = async (req, res, next) => { // ✅ QUAN TRỌNG: Thêm 'ne
     }
 
     await customer.save();
-    
-    // Populate để trả về đầy đủ thông tin cho frontend hiển thị ngay
     await customer.populate('cart.product');
     
     res.status(201).json(customer.cart);
 
   } catch (error) {
-    next(error); // ✅ Giờ dòng này sẽ hoạt động tốt, không báo lỗi "next is not a function" nữa
+    next(error);
   }
 };
 
 // @desc    Xóa khỏi giỏ hàng
-const removeItemFromCart = async(req, res, next) => { // ✅ Thêm 'next'
+const removeItemFromCart = async(req, res, next) => {
     try {
         const {productId} = req.params;
         const customer = await Customer.findById(req.user._id);
@@ -184,7 +175,7 @@ const removeItemFromCart = async(req, res, next) => { // ✅ Thêm 'next'
 };
 
 // @desc    Cập nhật số lượng giỏ hàng
-const updateCartItemQuantity = async (req, res, next) => { // ✅ Thêm 'next'
+const updateCartItemQuantity = async (req, res, next) => {
   try {
     const { productId, quantity } = req.body;
     const customer = await Customer.findById(req.user._id);
@@ -212,24 +203,7 @@ const updateCartItemQuantity = async (req, res, next) => { // ✅ Thêm 'next'
   }
 };
 
-// Các hàm Admin giữ nguyên logic nhưng thêm next cho chuẩn
-const getAllCustomers = async (req, res, next) => {
-  try {
-    const customers = await Customer.find({}).select('-password').sort({ createdAt: -1 });
-    const customersWithStats = await Promise.all(
-      customers.map(async (customer) => {
-        const orders = await Order.find({ user: customer._id });
-        const totalOrders = orders.length;
-        const totalSpent = orders.reduce((sum, order) => sum + order.totalPrice, 0);
-        return { ...customer.toObject(), totalOrders, totalSpent };
-      })
-    );
-    res.json(customersWithStats);
-  } catch (error) {
-    next(error);
-  }
-};
-
+// @desc    Lấy thông tin profile
 const getCustomerProfile = async (req, res, next) => {
     try {
         const customer = await Customer.findById(req.user._id);
@@ -250,28 +224,98 @@ const getCustomerProfile = async (req, res, next) => {
     }
 };
 
+// ✅ @desc    Cập nhật profile USER (có kiểm tra mật khẩu cũ)
+// @route   PUT /api/customers/profile
 const updateUserProfile = async (req, res, next) => {
     try {
         const customer = await Customer.findById(req.user._id);
-        if (customer) {
-            customer.name = req.body.name || customer.name;
-            customer.phone = req.body.phone || customer.phone;
-            if (req.body.password) {
-                customer.password = req.body.password;
-            }
-            const updatedCustomer = await customer.save();
-            res.json({
-                _id: updatedCustomer._id,
-                name: updatedCustomer.name,
-                email: updatedCustomer.email,
-                isAdmin: updatedCustomer.isAdmin,
-                phone: updatedCustomer.phone,
-                token: generateToken(updatedCustomer._id),
-            });
-        } else {
+        
+        if (!customer) {
             res.status(404);
             throw new Error('Không tìm thấy người dùng');
         }
+
+        // ✅ Nếu có đổi mật khẩu, phải nhập mật khẩu cũ
+        if (req.body.newPassword) {
+            if (!req.body.currentPassword) {
+                res.status(400);
+                throw new Error('Vui lòng nhập mật khẩu cũ');
+            }
+
+            const isMatch = await customer.matchPassword(req.body.currentPassword);
+            if (!isMatch) {
+                res.status(401);
+                throw new Error('Mật khẩu cũ không đúng');
+            }
+
+            customer.password = req.body.newPassword;
+        }
+
+        // ✅ Cập nhật thông tin khác
+        customer.name = req.body.name || customer.name;
+        customer.phone = req.body.phone || customer.phone;
+
+        // Validate phone
+        if (req.body.phone) {
+            const phoneRegex = /^0\d{9}$/;
+            if (!phoneRegex.test(req.body.phone)) {
+                res.status(400);
+                throw new Error('Số điện thoại không hợp lệ (Phải có 10 số và bắt đầu bằng số 0)');
+            }
+        }
+
+        const updatedCustomer = await customer.save();
+        
+        res.json({
+            _id: updatedCustomer._id,
+            name: updatedCustomer.name,
+            email: updatedCustomer.email,
+            phone: updatedCustomer.phone,
+            isAdmin: updatedCustomer.isAdmin,
+            token: generateToken(updatedCustomer._id),
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ✅ @desc    Admin cập nhật thông tin khách hàng
+// @route   PUT /api/customers/:id/update-info
+const updateCustomerByAdmin = async (req, res, next) => {
+    try {
+        const customer = await Customer.findById(req.params.id);
+        
+        if (!customer) {
+            res.status(404);
+            throw new Error('Không tìm thấy khách hàng');
+        }
+
+        // ✅ Admin có thể đổi: name, phone, password (không cần mật khẩu cũ)
+        customer.name = req.body.name || customer.name;
+        customer.phone = req.body.phone || customer.phone;
+
+        if (req.body.password) {
+            customer.password = req.body.password;
+        }
+
+        // Validate phone
+        if (req.body.phone) {
+            const phoneRegex = /^0\d{9}$/;
+            if (!phoneRegex.test(req.body.phone)) {
+                res.status(400);
+                throw new Error('Số điện thoại không hợp lệ');
+            }
+        }
+
+        const updatedCustomer = await customer.save();
+        
+        res.json({
+            _id: updatedCustomer._id,
+            name: updatedCustomer.name,
+            email: updatedCustomer.email,
+            phone: updatedCustomer.phone,
+            isAdmin: updatedCustomer.isAdmin,
+        });
     } catch (error) {
         next(error);
     }
@@ -291,6 +335,23 @@ const clearCart = async(req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+const getAllCustomers = async (req, res, next) => {
+  try {
+    const customers = await Customer.find({}).select('-password').sort({ createdAt: -1 });
+    const customersWithStats = await Promise.all(
+      customers.map(async (customer) => {
+        const orders = await Order.find({ user: customer._id });
+        const totalOrders = orders.length;
+        const totalSpent = orders.reduce((sum, order) => sum + order.totalPrice, 0);
+        return { ...customer.toObject(), totalOrders, totalSpent };
+      })
+    );
+    res.json(customersWithStats);
+  } catch (error) {
+    next(error);
+  }
 };
 
 const toggleCustomerAdmin = async (req, res, next) => {
@@ -335,6 +396,7 @@ export {
     removeItemFromCart,
     getCustomerProfile,
     updateUserProfile,
+    updateCustomerByAdmin, // ✅ NEW
     updateCartItemQuantity,
     clearCart,
     getAllCustomers,

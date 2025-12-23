@@ -52,16 +52,7 @@ const createData = async () => {
         createdAt: new Date(),
         updatedAt: new Date()
       },
-      {
-        email: 'user1@example.com',
-        name: 'Nguyễn Văn A',
-        phone: '0909876543',
-        password: await hashPassword('user123'),
-        isAdmin: false,
-        cart: [],
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
+      
     ];
     
     await customersCollection.insertMany(customers);

@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaBook, FaShoppingCart, FaBoxOpen, FaSearch, FaBars, FaTimes, FaCog } from 'react-icons/fa';
+// Thêm FaUser vào đây
+import { FaBook, FaShoppingCart, FaBoxOpen, FaSearch, FaBars, FaTimes, FaCog, FaUser } from 'react-icons/fa';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  console.log('🔍 Navbar - User:', user);
-  console.log('🔍 Navbar - isAdmin:', user?.isAdmin);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -22,7 +20,7 @@ const Navbar = () => {
       navigate('/products');
     }
   };
-  
+
   const handleLogout = () => {
     logout();
     setMobileMenuOpen(false);
@@ -45,17 +43,10 @@ const Navbar = () => {
               {user ? (
                 <>
                   <span className="hidden sm:inline">Xin chào, <strong>{user.name || user.email}</strong></span>
-                  <span className="sm:hidden"><strong>{user.name || user.email}</strong></span>
-                  {/* ✅ HIỂN THỊ BADGE ADMIN */}
                   {user.isAdmin && (
                     <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded font-bold">ADMIN</span>
                   )}
-                  <button 
-                    onClick={handleLogout}
-                    className="hover:text-red-400 transition-colors"
-                  >
-                    Đăng xuất
-                  </button>
+                  <button onClick={handleLogout} className="hover:text-red-400 transition-colors">Đăng xuất</button>
                 </>
               ) : (
                 <>
@@ -80,16 +71,16 @@ const Navbar = () => {
 
             {/* Search Box - Desktop */}
             <div className="hidden md:flex flex-1 max-w-lg mx-10">
-              <form onSubmit={handleSearch} className="relative w-full"> 
+              <form onSubmit={handleSearch} className="relative w-full">
                 <input
                   type="text"
                   placeholder="Tìm kiếm sách..."
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 transition-colors"
-                  value={searchTerm}                     
-                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 <button type="submit" className="absolute right-4 top-3 text-gray-400 hover:text-blue-500">
-                    <FaSearch />
+                  <FaSearch />
                 </button>
               </form>
             </div>
@@ -108,8 +99,9 @@ const Navbar = () => {
                   <Link to="/my-orders" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-all font-medium">
                     <FaBoxOpen /><span>Đơn hàng</span>
                   </Link>
-                  
-                  {/* ✅ CHỈ HIỂN THỊ NẾU isAdmin === true */}
+                  <Link to="/profile" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-all font-medium">
+                    <FaUser /><span>Tài khoản</span>
+                  </Link>
                   {user.isAdmin && (
                     <Link to="/admin" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-red-600 hover:bg-red-50 transition-all font-medium">
                       <FaCog /><span>Quản trị</span>
@@ -126,22 +118,6 @@ const Navbar = () => {
             >
               {mobileMenuOpen ? <FaTimes className="text-2xl" /> : <FaBars className="text-2xl" />}
             </button>
-          </div>
-
-          {/* Mobile Search */}
-          <div className="md:hidden pb-3">
-            <form onSubmit={handleSearch} className="relative">
-              <input
-                  type="text"
-                  placeholder="Tìm kiếm sách..."
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <button type="submit" className="absolute right-4 top-3 text-gray-400">
-                  <FaSearch />
-              </button>
-            </form>
           </div>
         </div>
       </div>
@@ -171,8 +147,9 @@ const Navbar = () => {
                     <Link to="/my-orders" onClick={closeMobileMenu} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all">
                       <FaBoxOpen /><span>Đơn hàng</span>
                     </Link>
-                    
-                    {/* ✅ CHỈ HIỂN THỊ NẾU isAdmin === true */}
+                    <Link to="/profile" onClick={closeMobileMenu} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all">
+                      <FaUser /><span>Tài khoản</span>
+                    </Link>
                     {user.isAdmin && (
                       <Link to="/admin" onClick={closeMobileMenu} className="flex items-center space-x-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all">
                         <FaCog /><span>Quản trị</span>

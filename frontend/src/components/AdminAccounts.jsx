@@ -1,14 +1,18 @@
-// frontend/src/components/AdminAccounts.jsx - FIXED OVERLAY & ACTIVE TOGGLE
-
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaUser, FaEnvelope, FaPhone, FaShieldAlt, FaEye, FaEyeSlash } from 'react-icons/fa';
+import { customersAPI } from '../utils/api';
+import { FaUser, FaEnvelope, FaPhone, FaShieldAlt, FaEye, FaEyeSlash, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
 
 const AdminAccounts = () => {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // ✅ EDIT STATE
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', phone: '', password: '' });
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -46,7 +50,6 @@ const AdminAccounts = () => {
     }
   };
 
-  // ✅ FIXED: API toggle-active hoạt động đúng
   const handleToggleActive = async (customerId, currentStatus) => {
     const action = currentStatus ? 'vô hiệu hóa' : 'kích hoạt';
     if (!window.confirm(`Bạn có chắc chắn muốn ${action} tài khoản này?`)) return;
@@ -59,12 +62,66 @@ const AdminAccounts = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      console.log('✅ Toggle active response:', response.data);
       alert(`✅ Đã ${action} tài khoản thành công!`);
       fetchCustomers();
     } catch (error) {
-      console.error('❌ Toggle active error:', error);
       alert('❌ Lỗi: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  // ✅ EDIT FUNCTIONS
+  const handleEdit = (customer) => {
+    setEditingId(customer._id);
+    setEditForm({
+      name: customer.name || '',
+      phone: customer.phone || '',
+      password: '' // Không hiển thị mật khẩu cũ
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ name: '', phone: '', password: '' });
+  };
+
+  const handleSaveEdit = async (customerId) => {
+    setEditLoading(true);
+    try {
+      // Validate phone
+      if (editForm.phone) {
+        const phoneRegex = /^0\d{9}$/;
+        if (!phoneRegex.test(editForm.phone)) {
+          alert('❌ Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)');
+          setEditLoading(false);
+          return;
+        }
+      }
+
+      const updateData = {
+        name: editForm.name,
+        phone: editForm.phone
+      };
+
+      // Chỉ gửi password nếu có nhập
+      if (editForm.password && editForm.password.trim()) {
+        if (editForm.password.length < 6) {
+          alert('❌ Mật khẩu phải có ít nhất 6 ký tự');
+          setEditLoading(false);
+          return;
+        }
+        updateData.password = editForm.password;
+      }
+
+      await customersAPI.updateCustomerByAdmin(customerId, updateData);
+      
+      alert('✅ Cập nhật thông tin thành công!');
+      setEditingId(null);
+      setEditForm({ name: '', phone: '', password: '' });
+      fetchCustomers();
+    } catch (error) {
+      alert('❌ Lỗi: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -129,35 +186,64 @@ const AdminAccounts = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.map((customer) => (
-                // ✅ FIXED: Xóa opacity-60, chỉ giữ bg-gray-50 cho tài khoản vô hiệu
                 <tr key={customer._id} className={customer.isActive === false ? 'bg-gray-50' : ''}>
                   <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <FaUser className="text-blue-600" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{customer.name || 'N/A'}</div>
-                        <div className="text-xs text-gray-500">
-                          Tham gia: {new Date(customer.createdAt).toLocaleDateString('vi-VN')}
+                    {editingId === customer._id ? (
+                      <input
+                        type="text"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="w-full border border-blue-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Tên"
+                      />
+                    ) : (
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <FaUser className="text-blue-600" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">{customer.name || 'N/A'}</div>
+                          <div className="text-xs text-gray-500">
+                            Tham gia: {new Date(customer.createdAt).toLocaleDateString('vi-VN')}
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </td>
 
                   <td className="px-6 py-4">
-                    <div className="text-sm space-y-1">
-                      <div className="flex items-center text-gray-700">
-                        <FaEnvelope className="mr-2 text-gray-400" size={12} />
-                        {customer.email}
+                    {editingId === customer._id ? (
+                      <div className="space-y-2">
+                        <div className="text-xs text-gray-600">Email: {customer.email}</div>
+                        <input
+                          type="tel"
+                          value={editForm.phone}
+                          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                          className="w-full border border-blue-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="0xxxxxxxxx"
+                        />
+                        <input
+                          type="password"
+                          value={editForm.password}
+                          onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                          className="w-full border border-blue-500 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Mật khẩu mới (tùy chọn)"
+                        />
                       </div>
-                      {customer.phone && (
+                    ) : (
+                      <div className="text-sm space-y-1">
                         <div className="flex items-center text-gray-700">
-                          <FaPhone className="mr-2 text-gray-400" size={12} />
-                          {customer.phone}
+                          <FaEnvelope className="mr-2 text-gray-400" size={12} />
+                          {customer.email}
                         </div>
-                      )}
-                    </div>
+                        {customer.phone && (
+                          <div className="flex items-center text-gray-700">
+                            <FaPhone className="mr-2 text-gray-400" size={12} />
+                            {customer.phone}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </td>
 
                   <td className="px-6 py-4">
@@ -196,34 +282,65 @@ const AdminAccounts = () => {
                   </td>
 
                   <td className="px-6 py-4 text-sm space-x-2">
-                    <button
-                      onClick={() => handleToggleAdmin(customer._id, customer.isAdmin)}
-                      className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                        customer.isAdmin
-                          ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          : 'bg-purple-600 text-white hover:bg-purple-700'
-                      }`}
-                      title={customer.isAdmin ? 'Gỡ quyền admin' : 'Cấp quyền admin'}
-                    >
-                      {customer.isAdmin ? 'Gỡ Admin' : 'Cấp Admin'}
-                    </button>
-                    
-                    {!customer.isAdmin && (
-                      <button
-                        onClick={() => handleToggleActive(customer._id, customer.isActive !== false)}
-                        className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                          customer.isActive !== false
-                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                            : 'bg-green-100 text-green-700 hover:bg-green-200'
-                        }`}
-                        title={customer.isActive !== false ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                      >
-                        {customer.isActive !== false ? (
-                          <><FaEyeSlash className="inline mr-1" />Vô hiệu</>
-                        ) : (
-                          <><FaEye className="inline mr-1" />Kích hoạt</>
+                    {editingId === customer._id ? (
+                      <>
+                        <button
+                          onClick={() => handleSaveEdit(customer._id)}
+                          disabled={editLoading}
+                          className="px-3 py-1 rounded text-xs font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                          title="Lưu"
+                        >
+                          {editLoading ? '...' : <FaSave className="inline" />}
+                        </button>
+                        <button
+                          onClick={handleCancelEdit}
+                          disabled={editLoading}
+                          className="px-3 py-1 rounded text-xs font-semibold bg-gray-300 text-gray-700 hover:bg-gray-400"
+                          title="Hủy"
+                        >
+                          <FaTimes className="inline" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleEdit(customer)}
+                          className="px-3 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200"
+                          title="Sửa thông tin"
+                        >
+                          <FaEdit className="inline" />
+                        </button>
+                        
+                        <button
+                          onClick={() => handleToggleAdmin(customer._id, customer.isAdmin)}
+                          className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                            customer.isAdmin
+                              ? 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                              : 'bg-purple-600 text-white hover:bg-purple-700'
+                          }`}
+                          title={customer.isAdmin ? 'Gỡ quyền admin' : 'Cấp quyền admin'}
+                        >
+                          {customer.isAdmin ? 'Gỡ Admin' : 'Cấp Admin'}
+                        </button>
+                        
+                        {!customer.isAdmin && (
+                          <button
+                            onClick={() => handleToggleActive(customer._id, customer.isActive !== false)}
+                            className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+                              customer.isActive !== false
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            }`}
+                            title={customer.isActive !== false ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                          >
+                            {customer.isActive !== false ? (
+                              <><FaEyeSlash className="inline mr-1" />Vô hiệu</>
+                            ) : (
+                              <><FaEye className="inline mr-1" />Kích hoạt</>
+                            )}
+                          </button>
                         )}
-                      </button>
+                      </>
                     )}
                   </td>
                 </tr>
