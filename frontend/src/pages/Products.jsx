@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom'; // 1. THÊM useLocation
 import { productsAPI, cartAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { FaBook, FaShoppingCart, FaSearch } from 'react-icons/fa';
@@ -7,6 +7,8 @@ import { FaBook, FaShoppingCart, FaSearch } from 'react-icons/fa';
 const Products = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); // 2. KHỞI TẠO HOOK LOCATION
+  
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -21,7 +23,9 @@ const Products = () => {
   useEffect(() => {
     fetchProducts();
     setFilter(categoryParam);
-  }, [categoryParam, keywordParam, sortBy]);
+    // 3. THÊM location VÀO DEPENDENCY ARRAY
+    // Việc này ép buộc React chạy lại hàm fetchProducts mỗi khi người dùng điều hướng tới trang này
+  }, [categoryParam, keywordParam, sortBy, location]); 
 
   const fetchProducts = async () => {
     try {

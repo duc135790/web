@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import AdminRoute from './components/AdminRoute'; // ✅ 1. Import cổng bảo vệ
 
 // Pages
 import Home from './pages/Home';
@@ -32,7 +33,10 @@ function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/my-orders" element={<MyOrders />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<Admin />} />
+            </Route>
+
           </Routes>
         </div>
       </Router>

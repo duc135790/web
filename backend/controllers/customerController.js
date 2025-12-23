@@ -10,24 +10,35 @@ const registerCustomer = async (req, res, next)=>{
 
     try{
         // Validate required fields
-        if (!email || !password) {
+        if (!email || !password || !name || !phone) {
             return res.status(400).json({
-                message: "Vui lòng điền email và mật khẩu"
+                message: "Vui lòng điền đầy đủ thông tin: Tên, Email, SĐT và Mật khẩu"
             });
         }
 
+        // Regex: Phải bắt đầu bằng số 0, và theo sau là 9 chữ số (Tổng 10 số)
+        const phoneRegex = /^0\d{9}$/;
+        if (!phoneRegex.test(phone)) {
+            return res.status(400).json({
+                message: "Số điện thoại không hợp lệ (Phải có 10 số và bắt đầu bằng số 0)"
+            });
+        }
+
+
         const customerExists = await Customer.findOne({email});
         if(customerExists){
-            return res.status(400).json({message : "Email da ton tai"});
+            return res.status(400).json({message : "Email đã tồn tại"});
         }
         
         //tao customer
         const customer = await Customer.create({email, name, phone, password});
 
+        // Trả về kết quả (Lưu ý: Token vẫn được tạo nhưng Frontend đã sửa để không tự lưu nữa)
         res.status(201).json({
             _id: customer._id,
             name: customer.name,
             email: customer.email,
+            phone: customer.phone,
             token: generateToken(customer._id),
         });
     }catch(error){
@@ -56,14 +67,15 @@ const loginCustomer = async (req, res)=>{
                 _id: customer._id,
                 name: customer.name,
                 email: customer.email,
+                phone: customer.phone, // Trả thêm sđt để frontend hiển thị nếu cần
                 isAdmin: customer.isAdmin,
                 token: generateToken(customer._id),
             });
         }else{
-            res.status(401).json({message: "Email hoac mat khau khong chinh xac"});
+            res.status(401).json({message: "Email hoặc mật khẩu không chính xác"});
         }
     }catch(error){
-        res.status(500).json({message: "Loi may chu"});
+        res.status(500).json({message: "Lỗi máy chủ"});
     }
 };
 
@@ -139,7 +151,7 @@ const toggleCustomerActive = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy khách hàng' });
     }
     
-    // Không cho phép vô hiệu hóa admin
+
     if (customer.isAdmin) {
       return res.status(400).json({ 
         message: 'Không thể vô hiệu hóa tài khoản admin. Vui lòng gỡ quyền admin trước.' 
@@ -172,7 +184,7 @@ const getCustomerCart = async (req, res)=>{
             throw new Error('Không tìm thấy khách hàng');
         }
 
-        // Lọc các sản phẩm không còn tồn tại
+
         const validCart = customer.cart.filter(item => item.product);
         
         res.json(validCart);
@@ -199,7 +211,7 @@ const addItemToCart = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
     }
 
-    // ✅ KIỂM TRA TỒN KHO
+
     if (product.countInStock === 0) {
       return res.status(400).json({ message: 'Sản phẩm đã hết hàng' });
     }
@@ -211,10 +223,9 @@ const addItemToCart = async (req, res) => {
     );
 
     if (cartItemIndex > -1) {
-      // Sản phẩm đã có trong giỏ - cộng dồn số lượng
+
       const newQuantity = customer.cart[cartItemIndex].quantity + Number(quantity);
-      
-      // ✅ KIỂM TRA VƯỢT QUÁ TỒN KHO
+
       if (newQuantity > product.countInStock) {
         return res.status(400).json({ 
           message: `Chỉ còn ${product.countInStock} sản phẩm. Bạn đã có ${customer.cart[cartItemIndex].quantity} trong giỏ.` 
@@ -224,7 +235,6 @@ const addItemToCart = async (req, res) => {
       customer.cart[cartItemIndex].quantity = newQuantity;
       console.log("👉 3. Sản phẩm đã có, cập nhật số lượng mới:", newQuantity);
     } else {
-      // ✅ KIỂM TRA SỐ LƯỢNG THÊM MỚI
       if (Number(quantity) > product.countInStock) {
         return res.status(400).json({ 
           message: `Chỉ còn ${product.countInStock} sản phẩm` 
@@ -397,7 +407,7 @@ export{
     updateUserProfile,
     updateCartItemQuantity,
     clearCart,
-    getAllCustomers, // ✅ EXPORT
-    toggleCustomerAdmin, // ✅ EXPORT
-    toggleCustomerActive, // ✅ EXPORT
+    getAllCustomers, 
+    toggleCustomerAdmin,
+    toggleCustomerActive,
 };

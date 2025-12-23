@@ -15,8 +15,6 @@ const Register = () => {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  // ❌ XÓA useEffect redirect - Đây là nguyên nhân gây lỗi!
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
     setError('');
@@ -27,12 +25,26 @@ const Register = () => {
     setLoading(true);
     setError('');
 
+
+    // Regex: Bắt đầu bằng số 0, theo sau là 9 chữ số bất kỳ (Tổng 10 số)
+    const phoneRegex = /^0\d{9}$/;
+    
+    if (!phoneRegex.test(formData.phone)) {
+        setError('Số điện thoại không hợp lệ (Phải có 10 số và bắt đầu bằng số 0)');
+        setLoading(false);
+        return; 
+    }
+
+
     const result = await register(formData);
     setLoading(false);
 
     if (result.success) {
-      // Redirect về trang chủ sau khi register thành công
-      navigate('/', { replace: true });
+
+      alert("Đăng ký thành công! Vui lòng đăng nhập."); 
+      
+
+      navigate('/login'); 
     } else {
       setError(result.message);
     }

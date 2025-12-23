@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load user từ localStorage khi app khởi động
+
     const loadUser = () => {
       try {
         const storedUser = localStorage.getItem('user');
@@ -47,11 +47,11 @@ export const AuthProvider = ({ children }) => {
       
       const { token, ...userData } = response.data;
       
-      // Lưu vào localStorage
+
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       
-      // Cập nhật state
+
       setUser(userData);
       
       console.log('✅ Login success, user:', userData);
@@ -69,19 +69,15 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       console.log('📝 Đang đăng ký với:', userData);
+      
+
       const response = await authAPI.register(userData);
       console.log('✅ Response đăng ký:', response.data);
       
-      const { token, ...userInfo } = response.data;
-      
-      // Lưu vào localStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userInfo));
-      
-      // Cập nhật state
-      setUser(userInfo);
+
       
       return { success: true };
+
     } catch (error) {
       console.error('❌ Lỗi đăng ký:', error.response?.data || error.message);
       return {
@@ -98,7 +94,7 @@ export const AuthProvider = ({ children }) => {
     console.log('👋 User logged out');
   };
 
-  // ✅ Tính isAdmin từ user state
+
   const isAdmin = user?.isAdmin === true;
 
   const value = {

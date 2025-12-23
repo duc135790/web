@@ -1,7 +1,7 @@
+
+
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { hashPassword } from "../utils/hashPassword.js";
-
 //tao schema cho gio hang
 const cartItemSchema = mongoose.Schema({
     name: {type: String, required: true},
@@ -22,7 +22,6 @@ const customerSchema = mongoose.Schema(
     phone: { type: String, required: false },
     password: { type: String, required: true },
     isAdmin: { type: Boolean, default: false },
-    // ✅ THÊM FIELD isActive
     isActive: { type: Boolean, default: true },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
@@ -33,16 +32,24 @@ const customerSchema = mongoose.Schema(
   }
 );
 
-customerSchema.pre("save", async function (){
-    if(!this.isModified("password")){
-        return;
+customerSchema.pre("save", async function (next) {
+    if (!this.isModified("password")) {
+        return next();
     }
-    this.password = await hashPassword(this.password);
+    
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+        next();
+    } catch (error) {
+        return next(error);
+    }
 });
 
-customerSchema.methods.matchPassword = async function (enteredPassword){
+customerSchema.methods.matchPassword = async function (enteredPassword) {
+    if (!this.password) return false; 
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-const Customer= mongoose.model('Customer', customerSchema);
+const Customer = mongoose.model('Customer', customerSchema);
 export default Customer;

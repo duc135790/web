@@ -1,4 +1,3 @@
-// frontend/src/utils/api.js - FIXED
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -41,13 +40,18 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (credentials) => api.post('/customers/login', credentials),
   register: (userData) => api.post('/customers', userData),
-  getProfile: () => api.get('/customers/profile'),
+  // Thêm chống cache cho profile luôn cho chắc
+  getProfile: () => api.get('/customers/profile', { params: { _t: Date.now() } }),
 };
 
 export const productsAPI = {
-  getProducts: (keyword = '', category = '') => api.get('/products', { params: { keyword, category } }),
-  getProductById: (id) => api.get(`/products/${id}`),
-  getAllProducts: () => api.get('/products/admin/all'),
+  getProducts: (keyword = '', category = '') => api.get('/products', { 
+    params: { keyword, category, _t: Date.now() } 
+  }),
+  
+  getProductById: (id) => api.get(`/products/${id}`, { params: { _t: Date.now() } }),
+  
+  getAllProducts: () => api.get('/products/admin/all', { params: { _t: Date.now() } }),
   createProduct: (productData) => api.post('/products', productData),
   updateProduct: (id, productData) => api.put(`/products/${id}`, productData),
   deleteProduct: (id) => api.delete(`/products/${id}`),
@@ -58,9 +62,10 @@ export const productsAPI = {
 
 export const ordersAPI = {
   createOrder: (orderData) => api.post('/orders', orderData),
-  getMyOrders: () => api.get('/orders/myorders'),
-  getOrderById: (id) => api.get(`/orders/${id}`),
-  getAllOrders: (searchTerm = '') => api.get('/orders', { params: { search: searchTerm } }),
+  getMyOrders: () => api.get('/orders/myorders', { params: { _t: Date.now() } }),
+  
+  getOrderById: (id) => api.get(`/orders/${id}`, { params: { _t: Date.now() } }),
+  getAllOrders: (searchTerm = '') => api.get('/orders', { params: { search: searchTerm, _t: Date.now() } }),
   updateStatus: (id, orderStatus) => api.put(`/orders/${id}/status`, { orderStatus }),
   updateOrderToDelivered: (id) => api.put(`/orders/${id}/deliver`),
   updatePaymentStatus: (id, isPaid) => api.put(`/orders/${id}/payment`, { isPaid }),
@@ -73,26 +78,26 @@ export const ordersAPI = {
 };
 
 export const cartAPI = {
-  getCart: () => api.get('/customers/cart'),
+  getCart: () => api.get('/customers/cart', { params: { _t: Date.now() } }),
+  
   addToCart: (productId, quantity) => api.post('/customers/cart', { productId, quantity }),
   updateCartItem: (productId, quantity) => api.put('/customers/cart', { productId, quantity }),
   removeFromCart: (productId) => api.delete(`/customers/cart/${productId}`),
 };
 
 export const vouchersAPI = {
-  getActiveVouchers: () => api.get('/vouchers'),
+  getActiveVouchers: () => api.get('/vouchers', { params: { _t: Date.now() } }),
   applyVoucher: (code, orderTotal) => api.post('/vouchers/apply', { code, orderTotal }),
-  getAllVouchersAdmin: () => api.get('/vouchers/admin/all'),
+  getAllVouchersAdmin: () => api.get('/vouchers/admin/all', { params: { _t: Date.now() } }),
   createVoucher: (voucherData) => api.post('/vouchers/create', voucherData),
   updateVoucher: (id, voucherData) => api.put(`/vouchers/${id}`, voucherData),
   deleteVoucher: (id) => api.delete(`/vouchers/${id}`),
   useVoucher: (id) => api.put(`/vouchers/${id}/use`),
-  // ✅ SỬA: Đổi từ /toggle sang /toggle-visibility để khớp với backend
   toggleVoucher: (id) => api.put(`/vouchers/${id}/toggle-visibility`)
 };
 
 export const customersAPI = {
-  getAllCustomers: () => api.get('/customers/all'),
+  getAllCustomers: () => api.get('/customers/all', { params: { _t: Date.now() } }),
   toggleAdmin: (id) => api.put(`/customers/${id}/toggle-admin`),
   toggleActive: (id) => api.put(`/customers/${id}/toggle-active`)
 };

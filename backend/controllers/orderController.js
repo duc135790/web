@@ -1,7 +1,8 @@
-// backend/controllers/orderController.js - FIXED VERSION
+
 
 import Order from '../models/orderModel.js';
 import Customer from '../models/customerModel.js';
+import Product from '../models/productModel.js'; // 1. THÊM IMPORT NÀY
 
 // Tạo đơn hàng mới
 const addOrderItems = async (req, res) => {
@@ -31,6 +32,15 @@ const addOrderItems = async (req, res) => {
 
         const createdOrder = await order.save();
 
+        // Duyệt qua từng sản phẩm trong giỏ để trừ số lượng
+        for (const item of cartItems) {
+            const product = await Product.findById(item.product);
+            if (product) {
+                // Trừ số lượng tồn kho
+                product.countInStock = product.countInStock - item.quantity;
+                await product.save();
+            }
+        }
         customer.cart = [];
         await customer.save();
 
@@ -38,7 +48,6 @@ const addOrderItems = async (req, res) => {
     }
 };
 
-// ✅ CẬP NHẬT TRẠNG THÁI THANH TOÁN
 const updatePaymentStatus = async (req, res) => {
   try {
     const { isPaid } = req.body;
@@ -70,7 +79,6 @@ const getMyOrders = async (req, res) => {
   res.json(orders);
 };
 
-// ✅ Lấy TẤT CẢ đơn hàng (có tìm kiếm theo mã)
 const getOrders = async (req, res) => {
   try {
     const { search } = req.query;
@@ -294,5 +302,5 @@ export {
   getRevenueStats,
   getTopCustomers,
   getOrdersOverview,
-  updatePaymentStatus // ✅ Export
+  updatePaymentStatus 
 };
