@@ -4,7 +4,7 @@ import { customersAPI } from '../utils/api';
 import { FaUser, FaEnvelope, FaPhone, FaLock, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
 
 const Profile = () => {
-  const { user, login } = useAuth();
+  const { user } = useAuth();
   const [editing, setEditing] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,7 @@ const Profile = () => {
     setSuccess('');
 
     try {
-      // ✅ Validate
+      // ✅ VALIDATE
       if (changingPassword) {
         if (!formData.currentPassword) {
           throw new Error('Vui lòng nhập mật khẩu cũ');
@@ -59,26 +59,32 @@ const Profile = () => {
         }
       }
 
-      // ✅ Validate phone
-      const phoneRegex = /^0\d{9}$/;
-      if (formData.phone && !phoneRegex.test(formData.phone)) {
-        throw new Error('Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)');
+      // ✅ VALIDATE PHONE
+      if (formData.phone) {
+        const phoneRegex = /^0\d{9}$/;
+        if (!phoneRegex.test(formData.phone)) {
+          throw new Error('Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)');
+        }
       }
 
-      // ✅ Chuẩn bị data gửi lên
+      // ✅ CHUẨN BỊ DATA
       const updateData = {
         name: formData.name,
         phone: formData.phone
       };
 
+      // ✅ QUAN TRỌNG: Chỉ gửi password khi đang đổi mật khẩu
       if (changingPassword) {
         updateData.currentPassword = formData.currentPassword;
         updateData.newPassword = formData.newPassword;
       }
 
-      const response = await customersAPI.updateProfile(updateData);
+      console.log('📤 Sending update:', updateData);
 
-      // ✅ Cập nhật localStorage và context
+      const response = await customersAPI.updateProfile(updateData);
+      console.log('✅ Update response:', response.data);
+
+      // ✅ CẬP NHẬT LOCALSTORAGE
       const updatedUser = {
         _id: response.data._id,
         name: response.data.name,
@@ -90,10 +96,12 @@ const Profile = () => {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       localStorage.setItem('token', response.data.token);
 
-      // ✅ Re-login để cập nhật context
-      await login(user.email, changingPassword ? formData.newPassword : formData.currentPassword || 'temp');
+      // ✅ RELOAD PAGE để update context
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
 
-      setSuccess('✅ Cập nhật thông tin thành công!');
+      setSuccess('✅ Cập nhật thông tin thành công! Đang tải lại trang...');
       setEditing(false);
       setChangingPassword(false);
       
@@ -105,8 +113,8 @@ const Profile = () => {
         confirmPassword: ''
       }));
 
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
+      console.error('❌ Update error:', err);
       setError(err.response?.data?.message || err.message || 'Cập nhật thất bại');
     } finally {
       setLoading(false);
@@ -140,7 +148,7 @@ const Profile = () => {
         <h1 className="text-3xl font-bold mb-8 text-gray-800">Thông tin tài khoản</h1>
 
         {success && (
-          <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded mb-6">
+          <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded mb-6 animate-pulse">
             {success}
           </div>
         )}
@@ -212,10 +220,21 @@ const Profile = () => {
                   <h3 className="text-lg font-semibold text-gray-800">Đổi mật khẩu</h3>
                   <button
                     type="button"
-                    onClick={() => setChangingPassword(!changingPassword)}
+                    onClick={() => {
+                      setChangingPassword(!changingPassword);
+                      if (changingPassword) {
+                        // Reset password fields khi tắt
+                        setFormData(prev => ({
+                          ...prev,
+                          currentPassword: '',
+                          newPassword: '',
+                          confirmPassword: ''
+                        }));
+                      }
+                    }}
                     className="text-sm text-blue-600 hover:underline"
                   >
-                    {changingPassword ? 'Không đổi mật khẩu' : 'Đổi mật khẩu'}
+                    {changingPassword ? '❌ Hủy đổi mật khẩu' : '🔒 Đổi mật khẩu'}
                   </button>
                 </div>
 
@@ -318,7 +337,7 @@ const Profile = () => {
         {/* Info Box */}
         <div className="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
           <p className="text-sm text-yellow-800">
-            <strong>Lưu ý:</strong> Khi đổi mật khẩu, bạn sẽ cần đăng nhập lại với mật khẩu mới.
+            <strong>Lưu ý:</strong> Khi đổi mật khẩu, trang sẽ tự động tải lại để cập nhật thông tin.
           </p>
         </div>
       </div>

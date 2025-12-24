@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   FaBook, FaFire, FaChevronLeft, FaChevronRight, FaShoppingCart 
 } from 'react-icons/fa';
@@ -10,6 +10,7 @@ import { cartAPI } from '../utils/api';
 const Home = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ Thêm location để track navigation
   const [currentSlide, setCurrentSlide] = useState(0);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
@@ -47,14 +48,15 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [slides.length]);
 
+  // ✅ FIX: Thêm location vào dependency để reload khi quay lại trang
   useEffect(() => {
     fetchProducts();
-  }, []); // ✅ Chỉ fetch lần đầu
+  }, [location.pathname]); // Reload khi pathname thay đổi
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      // ✅ Thêm timestamp để tránh cache
+      // ✅ CRITICAL: Thêm timestamp để bypass cache
       const { data } = await axios.get(`http://localhost:5000/api/products?_t=${Date.now()}`);
       setFeaturedProducts(data.slice(0, 4));
       setNewProducts(data.slice(0, 8));
@@ -79,7 +81,7 @@ const Home = () => {
     try {
       await cartAPI.addToCart(productId, 1);
       
-      // ✅ QUAN TRỌNG: RELOAD LẠI SẢN PHẨM SAU KHI THÊM GIỎ HÀNG
+      // ✅ CRITICAL: Reload products sau khi thêm giỏ hàng
       await fetchProducts();
       
       alert('✅ Đã thêm vào giỏ hàng!');
@@ -147,9 +149,7 @@ const Home = () => {
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {isOutOfStock ? (
-                <>
-                  <span>Hết hàng</span>
-                </>
+                <span>Hết hàng</span>
               ) : addingToCart[product._id] ? (
                 <>
                   <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

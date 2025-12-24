@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom'; // 1. THÊM useLocation
+import { Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { productsAPI, cartAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { FaBook, FaShoppingCart, FaSearch } from 'react-icons/fa';
@@ -7,7 +7,7 @@ import { FaBook, FaShoppingCart, FaSearch } from 'react-icons/fa';
 const Products = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // 2. KHỞI TẠO HOOK LOCATION
+  const location = useLocation();
   
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,16 +20,16 @@ const Products = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [addingToCart, setAddingToCart] = useState({});
 
+  // ✅ FIX: Reload khi location thay đổi
   useEffect(() => {
     fetchProducts();
     setFilter(categoryParam);
-    // 3. THÊM location VÀO DEPENDENCY ARRAY
-    // Việc này ép buộc React chạy lại hàm fetchProducts mỗi khi người dùng điều hướng tới trang này
-  }, [categoryParam, keywordParam, sortBy, location]); 
+  }, [categoryParam, keywordParam, sortBy, location.pathname]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      // ✅ CRITICAL: Thêm timestamp để bypass cache
       const response = await productsAPI.getProducts(keywordParam, categoryParam);
       let sortedProducts = [...response.data];
       
@@ -87,6 +87,10 @@ const Products = () => {
 
     try {
       await cartAPI.addToCart(productId, 1);
+      
+      // ✅ CRITICAL: Reload products sau khi thêm giỏ hàng
+      await fetchProducts();
+      
       alert('✅ Đã thêm vào giỏ hàng!');
     } catch (error) {
       console.error('❌ Error adding to cart:', error);

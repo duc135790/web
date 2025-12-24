@@ -224,10 +224,15 @@ const getCustomerProfile = async (req, res, next) => {
     }
 };
 
-// ✅ @desc    Cập nhật profile USER (có kiểm tra mật khẩu cũ)
+// ✅ @desc    Cập nhật profile USER (có kiểm tra mật khẩu cũ) - FIXED
 // @route   PUT /api/customers/profile
 const updateUserProfile = async (req, res, next) => {
     try {
+        console.log('🔄 Update profile request:', {
+            userId: req.user._id,
+            body: { ...req.body, currentPassword: '***', newPassword: '***' }
+        });
+
         const customer = await Customer.findById(req.user._id);
         
         if (!customer) {
@@ -237,34 +242,48 @@ const updateUserProfile = async (req, res, next) => {
 
         // ✅ Nếu có đổi mật khẩu, phải nhập mật khẩu cũ
         if (req.body.newPassword) {
+            console.log('🔐 Attempting password change');
+            
             if (!req.body.currentPassword) {
                 res.status(400);
                 throw new Error('Vui lòng nhập mật khẩu cũ');
             }
 
+            // ✅ KIỂM TRA MẬT KHẨU CŨ
             const isMatch = await customer.matchPassword(req.body.currentPassword);
+            console.log('🔍 Password match:', isMatch);
+            
             if (!isMatch) {
                 res.status(401);
                 throw new Error('Mật khẩu cũ không đúng');
             }
 
+            // ✅ Validate mật khẩu mới
+            if (req.body.newPassword.length < 6) {
+                res.status(400);
+                throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự');
+            }
+
             customer.password = req.body.newPassword;
+            console.log('✅ Password will be updated');
         }
 
         // ✅ Cập nhật thông tin khác
-        customer.name = req.body.name || customer.name;
-        customer.phone = req.body.phone || customer.phone;
-
-        // Validate phone
+        if (req.body.name) {
+            customer.name = req.body.name;
+        }
+        
         if (req.body.phone) {
             const phoneRegex = /^0\d{9}$/;
             if (!phoneRegex.test(req.body.phone)) {
                 res.status(400);
                 throw new Error('Số điện thoại không hợp lệ (Phải có 10 số và bắt đầu bằng số 0)');
             }
+            customer.phone = req.body.phone;
         }
 
         const updatedCustomer = await customer.save();
+        console.log('✅ Customer updated successfully');
         
         res.json({
             _id: updatedCustomer._id,
@@ -275,6 +294,7 @@ const updateUserProfile = async (req, res, next) => {
             token: generateToken(updatedCustomer._id),
         });
     } catch (error) {
+        console.error('❌ Update profile error:', error);
         next(error);
     }
 };
@@ -396,7 +416,7 @@ export {
     removeItemFromCart,
     getCustomerProfile,
     updateUserProfile,
-    updateCustomerByAdmin, // ✅ NEW
+    updateCustomerByAdmin,
     updateCartItemQuantity,
     clearCart,
     getAllCustomers,
