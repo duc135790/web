@@ -1,8 +1,14 @@
+// frontend/src/pages/ProductDetail.jsx - WITH REVIEWS
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { productsAPI, cartAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { FaBook, FaShoppingCart, FaArrowLeft, FaCheckCircle, FaExclamationCircle, FaUser, FaBuilding, FaFileAlt, FaGlobe, FaStar } from 'react-icons/fa';
+import axios from 'axios';
+import { 
+  FaBook, FaShoppingCart, FaArrowLeft, FaCheckCircle, FaExclamationCircle, 
+  FaUser, FaBuilding, FaFileAlt, FaGlobe, FaStar 
+} from 'react-icons/fa';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -14,9 +20,16 @@ const ProductDetail = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [addingToCart, setAddingToCart] = useState(false);
+  
+  // Review states
+  const [reviews, setReviews] = useState([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   useEffect(() => {
     fetchProduct();
+    fetchReviews();
   }, [id]);
 
   const fetchProduct = async () => {
@@ -27,6 +40,49 @@ const ProductDetail = () => {
       console.error('Error fetching product:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReviews = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(
+        `http://localhost:5000/api/products/${id}/reviews`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReviews(response.data.reviews || []);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+    }
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `http://localhost:5000/api/products/${id}/reviews`,
+        reviewData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setSuccess('✅ Đánh giá của bạn đã được gửi!');
+      setShowReviewForm(false);
+      setReviewData({ rating: 5, comment: '' });
+      fetchProduct();
+      fetchReviews();
+      
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      setError(error.response?.data?.message || 'Gửi đánh giá thất bại');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -121,10 +177,12 @@ const ProductDetail = () => {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex text-yellow-400">
                     {[...Array(5)].map((_, i) => (
-                      <FaStar key={i} className={i < (product.rating || 4) ? 'fill-current' : 'text-gray-300'} />
+                      <FaStar key={i} className={i < Math.round(product.rating || 0) ? 'fill-current' : 'text-gray-300'} />
                     ))}
                   </div>
-                  <span className="text-sm text-gray-600">({product.numReviews || 0} đánh giá)</span>
+                  <span className="text-sm text-gray-600">
+                    {product.rating ? product.rating.toFixed(1) : '0.0'} ({product.numReviews || 0} đánh giá)
+                  </span>
                 </div>
                 <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
                   product.countInStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -261,16 +319,91 @@ const ProductDetail = () => {
                     <td className="py-3 text-gray-800">{product.language}</td>
                   </tr>
                 )}
-                <tr>
-                  <td className="py-3 text-gray-600 font-medium">Danh mục</td>
-                  <td className="py-3 text-gray-800">{product.category || product.brand}</td>
-                </tr>
-                <tr>
-                  <td className="py-3 text-gray-600 font-medium">Tình trạng</td>
-                  <td className="py-3 text-gray-800">Mới 100%, nguyên seal</td>
-                </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="mt-8 bg-white rounded-lg shadow p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-800">Đánh giá sản phẩm</h2>
+            {user && (
+              <button
+                onClick={() => setShowReviewForm(!showReviewForm)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                {showReviewForm ? 'Hủy' : 'Viết đánh giá'}
+              </button>
+            )}
+          </div>
+
+          {/* Review Form */}
+          {showReviewForm && (
+            <form onSubmit={handleSubmitReview} className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Đánh giá của bạn</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewData({ ...reviewData, rating: star })}
+                      className="text-3xl"
+                    >
+                      <FaStar className={star <= reviewData.rating ? 'text-yellow-400' : 'text-gray-300'} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">Nhận xét</label>
+                <textarea
+                  value={reviewData.comment}
+                  onChange={(e) => setReviewData({ ...reviewData, comment: e.target.value })}
+                  required
+                  rows="4"
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm..."
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingReview}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+              </button>
+            </form>
+          )}
+
+          {/* Reviews List */}
+          <div className="space-y-4">
+            {reviews.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">Chưa có đánh giá nào</p>
+            ) : (
+              reviews.map((review) => (
+                <div key={review._id} className="border-b pb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <FaUser className="text-gray-400" />
+                      <span className="font-semibold">{review.name}</span>
+                    </div>
+                    <div className="flex text-yellow-400">
+                      {[...Array(5)].map((_, i) => (
+                        <FaStar key={i} className={i < review.rating ? 'fill-current' : 'text-gray-300'} size={14} />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-gray-700 text-sm">{review.comment}</p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    {new Date(review.createdAt).toLocaleDateString('vi-VN')}
+                  </p>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

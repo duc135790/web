@@ -1,4 +1,4 @@
-// backend/controllers/productController.js - FIXED VERSION
+// backend/controllers/productController.js - COMPLETE FIXED VERSION
 
 import Product from "../models/productModel.js";
 import Order from '../models/orderModel.js';
@@ -162,7 +162,7 @@ const updateProductStock = async (req, res) => {
   }
 };
 
-// ✅ ẨN/HIỆN SẢN PHẨM (FIXED - Hoạt động đúng)
+// ✅ ẨN/HIỆN SẢN PHẨM
 // @desc    Ẩn/Hiện sản phẩm
 // @route   PUT /api/products/:id/toggle-visibility
 // @access  Private/Admin
@@ -217,58 +217,145 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+// ✅ TẠO ĐÁNH GIÁ SẢN PHẨM - COMPLETE FIXED
 // @desc    Tạo đánh giá sản phẩm mới
 // @route   POST /api/products/:id/reviews
 // @access  Private
 const createProductReview = async (req, res) => {
-  const { rating, comment } = req.body;
-  const productId = req.params.id;
+  try {
+    const { rating, comment } = req.body;
+    const productId = req.params.id;
 
-  const product = await Product.findById(productId);
+    console.log('📝 Creating review:', { productId, rating, comment, user: req.user.email });
 
-  if (!product) {
-    res.status(404);
-    throw new Error('Không tìm thấy sách');
+    // Kiểm tra sản phẩm tồn tại
+    const product = await Product.findById(productId);
+    if (!product) {
+      res.status(404);
+      throw new Error('Không tìm thấy sách');
+    }
+
+    // Kiểm tra user đã mua sản phẩm chưa
+    const orders = await Order.find({ 
+      user: req.user._id, 
+      'orderItems.product': productId,
+      isPaid: true
+    });
+
+    console.log('🛍️ User orders with this product:', orders.length);
+
+    if (orders.length === 0) {
+      res.status(400);
+      throw new Error('Bạn phải mua sách này trước khi được đánh giá');
+    }
+
+    // Kiểm tra đã đánh giá chưa
+    const alreadyReviewed = product.reviews.find(
+      (r) => r.user.toString() === req.user._id.toString()
+    );
+
+    if (alreadyReviewed) {
+      res.status(400);
+      throw new Error('Bạn đã đánh giá sách này rồi');
+    }
+
+    // Tạo review mới
+    const review = {
+      name: req.user.name || req.user.email,
+      rating: Number(rating),
+      comment,
+      user: req.user._id,
+    };
+
+    product.reviews.push(review);
+
+    // ✅ CẬP NHẬT RATING VÀ NUMREVIEWS
+    product.numReviews = product.reviews.length;
+    product.rating = product.reviews.reduce((acc, item) => item.rating + acc, 0) / product.reviews.length;
+
+    console.log('✅ Updated stats:', {
+      numReviews: product.numReviews,
+      rating: product.rating
+    });
+
+    await product.save();
+    
+    res.status(201).json({ 
+      message: 'Đánh giá đã được thêm',
+      numReviews: product.numReviews,
+      rating: product.rating
+    });
+  } catch (error) {
+    console.error('❌ Review error:', error);
+    res.status(error.status || 500).json({ message: error.message });
   }
+};
 
-  const user = req.user;
+// ✅ LẤY TẤT CẢ ĐÁNH GIÁ CỦA SẢN PHẨM
+// @desc    Lấy tất cả đánh giá của sản phẩm
+// @route   GET /api/products/:id/reviews
+// @access  Public
+const getProductReviews = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id)
+      .populate('reviews.user', 'name email');
+    
+    if (!product) {
+      res.status(404);
+      throw new Error('Không tìm thấy sản phẩm');
+    }
 
-  const orders = await Order.find({ 
-    user: user._id, 
-    'orderItems.product': productId,
-    isPaid: true
-  });
-
-  if (orders.length === 0) {
-    res.status(400);
-    throw new Error('Bạn phải mua sách này trước khi được đánh giá');
+    res.json({
+      reviews: product.reviews,
+      numReviews: product.numReviews,
+      rating: product.rating
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
+};
 
-  const alreadyReviewed = product.reviews.find(
-    (r) => r.user.toString() === user._id.toString()
-  );
+// ✅ XÓA ĐÁNH GIÁ
+// @desc    Xóa đánh giá (Chỉ user tự xóa hoặc admin)
+// @route   DELETE /api/products/:id/reviews/:reviewId
+// @access  Private
+const deleteProductReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const product = await Product.findById(req.params.id);
 
-  if (alreadyReviewed) {
-    res.status(400);
-    throw new Error('Bạn đã đánh giá sách này rồi');
+    if (!product) {
+      res.status(404);
+      throw new Error('Không tìm thấy sản phẩm');
+    }
+
+    const review = product.reviews.find(r => r._id.toString() === reviewId);
+    
+    if (!review) {
+      res.status(404);
+      throw new Error('Không tìm thấy đánh giá');
+    }
+
+    // Chỉ cho phép user tự xóa hoặc admin xóa
+    if (review.user.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      res.status(403);
+      throw new Error('Không có quyền xóa đánh giá này');
+    }
+
+    product.reviews = product.reviews.filter(r => r._id.toString() !== reviewId);
+    
+    // ✅ Cập nhật lại rating và numReviews
+    product.numReviews = product.reviews.length;
+    product.rating = product.reviews.length > 0 
+      ? product.reviews.reduce((acc, item) => item.rating + acc, 0) / product.reviews.length
+      : 0;
+
+    await product.save();
+
+    res.json({ message: 'Đã xóa đánh giá' });
+  } catch (error) {
+    res.status(error.status || 500).json({ message: error.message });
   }
-
-  const review = {
-    name: user.name || user.fullName,
-    rating: Number(rating),
-    comment,
-    user: user._id,
-  };
-
-  product.reviews.push(review);
-
-  product.numReviews = product.reviews.length;
-  product.rating =
-    product.reviews.reduce((acc, item) => item.rating + acc, 0) /
-    product.reviews.length;
-
-  await product.save();
-  res.status(201).json({ message: 'Đánh giá đã được thêm' });
 };
 
 // @desc    Thống kê sản phẩm bán chạy
@@ -325,5 +412,7 @@ export {
   toggleProductVisibility,
   deleteProduct,
   createProductReview,
+  getProductReviews,
+  deleteProductReview,
   getBestSellingProducts,
 };
