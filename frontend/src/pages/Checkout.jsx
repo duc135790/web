@@ -1,3 +1,5 @@
+// frontend/src/pages/Checkout.jsx - FIXED WITH FORCE REFRESH
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +14,6 @@ const Checkout = () => {
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(1);
 
-  // Voucher states
   const [vouchers, setVouchers] = useState([]);
   const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [voucherInput, setVoucherInput] = useState('');
@@ -31,7 +32,6 @@ const Checkout = () => {
 
   const [paymentMethod, setPaymentMethod] = useState('COD');
   
-  // Bank transfer info
   const [bankInfo, setBankInfo] = useState({
     bankName: '',
     accountNumber: '',
@@ -175,6 +175,7 @@ const Checkout = () => {
     }
   };
 
+  // ✅ CRITICAL FIX: Force reload inventory sau khi đặt hàng
   const handleSubmitOrder = async () => {
     if (!validateStep1()) return;
 
@@ -193,6 +194,7 @@ const Checkout = () => {
         bankTransferInfo: paymentMethod === 'BANK' ? bankInfo : null
       };
 
+      console.log('📤 Submitting order:', orderData);
       const response = await ordersAPI.createOrder(orderData);
       console.log('✅ Order created:', response.data);
       
@@ -206,9 +208,22 @@ const Checkout = () => {
       
       setStep(3);
       
+      // ✅ CRITICAL: Clear browser cache và force reload
       setTimeout(() => {
-        navigate('/my-orders');
-      }, 5000);
+        // Clear service worker cache nếu có
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => caches.delete(name));
+          });
+        }
+        
+        // Navigate với force reload flag
+        navigate('/my-orders', { replace: true });
+        
+        // ✅ Force reload để fetch fresh data
+        window.location.reload();
+      }, 3000);
+      
     } catch (error) {
       console.error('❌ Error creating order:', error);
       alert(error.response?.data?.message || 'Đặt hàng thất bại');
@@ -238,8 +253,11 @@ const Checkout = () => {
             </div>
             
             <h2 className="text-3xl font-bold text-gray-800 mb-3">🎉 Đặt hàng thành công!</h2>
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-600 text-lg mb-2">
               Cảm ơn bạn đã tin tưởng BookStore.
+            </p>
+            <p className="text-sm text-gray-500">
+              Hệ thống đang cập nhật thông tin sản phẩm...
             </p>
           </div>
 
@@ -283,10 +301,22 @@ const Checkout = () => {
           </div>
 
           <div className="flex gap-4">
-            <button onClick={() => navigate('/my-orders')} className="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors">
+            <button 
+              onClick={() => {
+                navigate('/my-orders', { replace: true });
+                window.location.reload();
+              }} 
+              className="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+            >
               Xem đơn hàng
             </button>
-            <button onClick={() => navigate('/products')} className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors">
+            <button 
+              onClick={() => {
+                navigate('/products', { replace: true });
+                window.location.reload();
+              }} 
+              className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+            >
               Tiếp tục mua
             </button>
           </div>
@@ -294,13 +324,14 @@ const Checkout = () => {
       </div>
     );
   }
-// Tiếp theo từ phần 1 - phần return chính
+
+  // Rest of the checkout form (unchanged)
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8 text-gray-800">Thanh toán</h1>
 
-        {/* Progress */}
+        {/* Progress - unchanged */}
         <div className="mb-8">
           <div className="flex items-center justify-center">
             <div className={`flex items-center ${step >= 1 ? 'text-red-600' : 'text-gray-400'}`}>
@@ -398,7 +429,6 @@ const Checkout = () => {
                     </label>
                   </div>
 
-                  {/* Form thông tin chuyển khoản */}
                   {paymentMethod === 'BANK' && (
                     <div className="mt-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                       <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -409,13 +439,7 @@ const Checkout = () => {
                       <div className="space-y-3">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Ngân hàng *</label>
-                          <select
-                            name="bankName"
-                            value={bankInfo.bankName}
-                            onChange={handleBankInfoChange}
-                            required
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
+                          <select name="bankName" value={bankInfo.bankName} onChange={handleBankInfoChange} required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <option value="">Chọn ngân hàng</option>
                             <option value="Vietcombank">Vietcombank</option>
                             <option value="VietinBank">VietinBank</option>
@@ -430,40 +454,17 @@ const Checkout = () => {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Số tài khoản *</label>
-                          <input
-                            type="text"
-                            name="accountNumber"
-                            value={bankInfo.accountNumber}
-                            onChange={handleBankInfoChange}
-                            required
-                            placeholder="Nhập số tài khoản"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <input type="text" name="accountNumber" value={bankInfo.accountNumber} onChange={handleBankInfoChange} required placeholder="Nhập số tài khoản" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Chủ tài khoản *</label>
-                          <input
-                            type="text"
-                            name="accountHolder"
-                            value={bankInfo.accountHolder}
-                            onChange={handleBankInfoChange}
-                            required
-                            placeholder="Nhập tên chủ tài khoản"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <input type="text" name="accountHolder" value={bankInfo.accountHolder} onChange={handleBankInfoChange} required placeholder="Nhập tên chủ tài khoản" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung chuyển khoản</label>
-                          <input
-                            type="text"
-                            name="transferNote"
-                            value={bankInfo.transferNote}
-                            onChange={handleBankInfoChange}
-                            placeholder="VD: DH123456"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
+                          <input type="text" name="transferNote" value={bankInfo.transferNote} onChange={handleBankInfoChange} placeholder="VD: DH123456" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
 
@@ -481,10 +482,7 @@ const Checkout = () => {
                       <FaTag className="text-orange-600" />
                       Mã giảm giá
                     </h3>
-                    <button
-                      onClick={() => setShowVouchers(!showVouchers)}
-                      className="text-sm text-blue-600 hover:underline font-semibold"
-                    >
+                    <button onClick={() => setShowVouchers(!showVouchers)} className="text-sm text-blue-600 hover:underline font-semibold">
                       {showVouchers ? 'Ẩn voucher' : 'Hiện voucher'}
                     </button>
                   </div>
@@ -506,17 +504,8 @@ const Checkout = () => {
                   ) : (
                     <>
                       <div className="flex gap-2 mb-3">
-                        <input
-                          type="text"
-                          value={voucherInput}
-                          onChange={(e) => setVoucherInput(e.target.value.toUpperCase())}
-                          placeholder="Nhập mã voucher"
-                          className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-red-500 focus:outline-none"
-                        />
-                        <button 
-                          onClick={handleApplyVoucherInput}
-                          className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700"
-                        >
+                        <input type="text" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value.toUpperCase())} placeholder="Nhập mã voucher" className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-2 focus:border-red-500 focus:outline-none" />
+                        <button onClick={handleApplyVoucherInput} className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700">
                           Áp dụng
                         </button>
                       </div>
@@ -530,11 +519,7 @@ const Checkout = () => {
                       {showVouchers && (
                         <div className="mt-4 space-y-2">
                           {vouchers.map(voucher => (
-                            <div 
-                              key={voucher._id}
-                              className="border-2 border-dashed border-orange-300 rounded-lg p-4 hover:bg-orange-50 cursor-pointer transition-colors"
-                              onClick={() => handleApplyVoucher(voucher)}
-                            >
+                            <div key={voucher._id} className="border-2 border-dashed border-orange-300 rounded-lg p-4 hover:bg-orange-50 cursor-pointer transition-colors" onClick={() => handleApplyVoucher(voucher)}>
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                   <div className="bg-orange-100 p-2 rounded">
@@ -543,9 +528,7 @@ const Checkout = () => {
                                   <div>
                                     <p className="font-bold text-orange-800">{voucher.code}</p>
                                     <p className="text-sm text-gray-600">{voucher.description}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      Còn {voucher.maxUses - voucher.usedCount} lượt
-                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">Còn {voucher.maxUses - voucher.usedCount} lượt</p>
                                   </div>
                                 </div>
                                 <button className="bg-orange-600 text-white px-4 py-1 rounded text-sm font-semibold hover:bg-orange-700">
@@ -617,7 +600,6 @@ const Checkout = () => {
             </div>
           </div>
 
-          {/* Sidebar - Tóm tắt */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-6 sticky top-4">
               <h2 className="text-xl font-bold mb-4">Tóm tắt đơn hàng</h2>

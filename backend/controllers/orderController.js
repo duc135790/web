@@ -1,10 +1,10 @@
-// backend/controllers/orderController.js - FIXED STOCK UPDATE
+// backend/controllers/orderController.js - COMPLETELY FIXED
 
 import Order from '../models/orderModel.js';
 import Customer from '../models/customerModel.js';
 import Product from '../models/productModel.js';
 
-// ✅ TẠO ĐƠN HÀNG - COMPLETELY FIXED
+// ✅ TẠO ĐƠN HÀNG - TRIỆT ĐỂ FIX INVENTORY
 const addOrderItems = async (req, res) => {
     const { shippingAddress, paymentMethod, totalPrice, bankTransferInfo } = req.body;
     
@@ -21,10 +21,11 @@ const addOrderItems = async (req, res) => {
 
         console.log('📦 Cart items:', cartItems.length);
 
-        // ✅ BƯỚC 1: KIỂM TRA TỒN KHO VÀ LOCK PRODUCTS
+        // ✅ BƯỚC 1: KIỂM TRA TỒN KHO VÀ CHUẨN BỊ UPDATE
         const productUpdates = [];
         
         for (const item of cartItems) {
+            // ✅ CRITICAL: Luôn fetch product mới nhất từ DB
             const product = await Product.findById(item.product);
             
             if (!product) {
@@ -33,17 +34,18 @@ const addOrderItems = async (req, res) => {
             }
             
             console.log(`📊 Product: ${product.name}`);
-            console.log(`   Current stock: ${product.countInStock}`);
-            console.log(`   Requested: ${item.quantity}`);
+            console.log(`   Current DB stock: ${product.countInStock}`);
+            console.log(`   Requested quantity: ${item.quantity}`);
             
+            // ✅ Kiểm tra tồn kho thực tế từ DB
             if (product.countInStock < item.quantity) {
                 res.status(400);
                 throw new Error(`Sản phẩm ${product.name} chỉ còn ${product.countInStock} sản phẩm trong kho`);
             }
             
-            // Lưu thông tin để update sau
             productUpdates.push({
                 productId: product._id,
+                productName: product.name,
                 oldStock: product.countInStock,
                 quantity: item.quantity,
                 newStock: product.countInStock - item.quantity
@@ -71,42 +73,51 @@ const addOrderItems = async (req, res) => {
         const createdOrder = await order.save();
         console.log('✅ Order created:', createdOrder._id);
 
-        // ✅ BƯỚC 3: CẬP NHẬT TỒN KHO - CRITICAL FIX
+        // ✅ BƯỚC 3: CẬP NHẬT TỒN KHO - ATOMIC & VERIFIED
         console.log('📉 Updating stock for all products...');
         
         for (const update of productUpdates) {
             try {
-                // Sử dụng findByIdAndUpdate với atomic operation
+                console.log(`\n🔄 Updating ${update.productName}...`);
+                console.log(`   Old stock: ${update.oldStock}`);
+                console.log(`   Quantity sold: ${update.quantity}`);
+                console.log(`   Expected new stock: ${update.newStock}`);
+                
+                // ✅ CRITICAL FIX: Sử dụng findByIdAndUpdate với atomic $inc
                 const updatedProduct = await Product.findByIdAndUpdate(
                     update.productId,
                     { 
                         $inc: { countInStock: -update.quantity }
                     },
                     { 
-                        new: true,  // Return updated document
-                        runValidators: true  // Run schema validators
+                        new: true,  // Trả về document sau khi update
+                        runValidators: true  // Chạy validators
                     }
                 );
                 
-                if (updatedProduct) {
-                    console.log(`   ✅ ${updatedProduct.name}:`);
-                    console.log(`      Old stock: ${update.oldStock}`);
-                    console.log(`      Sold: ${update.quantity}`);
-                    console.log(`      New stock: ${updatedProduct.countInStock}`);
-                    
-                    // ✅ VERIFY trong database
-                    const verifyProduct = await Product.findById(update.productId);
-                    console.log(`      ✓ Verified in DB: ${verifyProduct.countInStock}`);
-                    
-                    if (verifyProduct.countInStock !== updatedProduct.countInStock) {
-                        console.error(`      ⚠️ MISMATCH DETECTED!`);
-                    }
-                } else {
-                    console.warn(`⚠️ Could not update product: ${update.productId}`);
+                if (!updatedProduct) {
+                    console.error(`❌ Product not found: ${update.productId}`);
+                    continue;
                 }
+                
+                console.log(`   ✅ Updated successfully!`);
+                console.log(`   New stock in DB: ${updatedProduct.countInStock}`);
+                
+                // ✅ VERIFY: Đọc lại từ DB để đảm bảo
+                const verifyProduct = await Product.findById(update.productId).select('name countInStock');
+                console.log(`   ✓ VERIFIED in database: ${verifyProduct.countInStock}`);
+                
+                // ✅ CRITICAL: Log nếu có mismatch
+                if (verifyProduct.countInStock !== update.newStock) {
+                    console.error(`   ⚠️ MISMATCH DETECTED!`);
+                    console.error(`      Expected: ${update.newStock}`);
+                    console.error(`      Actual: ${verifyProduct.countInStock}`);
+                    console.error(`      Difference: ${Math.abs(verifyProduct.countInStock - update.newStock)}`);
+                }
+                
             } catch (updateError) {
-                console.error(`❌ Error updating product ${update.productId}:`, updateError);
-                // Continue with other products but log the error
+                console.error(`❌ Error updating product ${update.productName}:`, updateError.message);
+                // ⚠️ Log nhưng không throw - tiếp tục với products khác
             }
         }
 
@@ -115,7 +126,15 @@ const addOrderItems = async (req, res) => {
         await customer.save();
         console.log('✅ Cart cleared for user:', customer._id);
 
-        console.log('🎉 Order completed successfully!');
+        // ✅ BƯỚC 5: FINAL VERIFICATION - Log tất cả products đã update
+        console.log('\n📊 FINAL VERIFICATION:');
+        for (const update of productUpdates) {
+            const finalProduct = await Product.findById(update.productId).select('name countInStock');
+            console.log(`   ${finalProduct.name}: ${finalProduct.countInStock} (was ${update.oldStock})`);
+        }
+
+        console.log('\n🎉 Order completed successfully!');
+        console.log('=' .repeat(60));
         
         res.status(201).json(createdOrder);
         
