@@ -68,7 +68,9 @@ export const ordersAPI = {
   updateStatus: (id, orderStatus) => api.put(`/orders/${id}/status`, { orderStatus }),
   updateOrderToDelivered: (id) => api.put(`/orders/${id}/deliver`),
   updatePaymentStatus: (id, isPaid) => api.put(`/orders/${id}/payment`, { isPaid }),
-  cancelOrder: (id) => api.delete(`/orders/${id}`),
+  
+  // ✅ FIXED: Đổi từ DELETE thành PUT để gọi đúng route cancel
+  cancelOrder: (id) => api.put(`/orders/${id}/cancel`),
   
   // Stats
   getRevenueStats: (period = 'month') => api.get('/orders/stats/revenue', { params: { period } }),
@@ -99,7 +101,6 @@ export const customersAPI = {
   getAllCustomers: () => api.get('/customers/all', { params: { _t: Date.now() } }),
   toggleAdmin: (id) => api.put(`/customers/${id}/toggle-admin`),
   toggleActive: (id) => api.put(`/customers/${id}/toggle-active`),
-  // ✅ NEW
   updateProfile: (data) => api.put('/customers/profile', data),
   updateCustomerByAdmin: (id, data) => api.put(`/customers/${id}/update-info`, data)
 };

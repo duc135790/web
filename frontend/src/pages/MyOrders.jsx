@@ -8,6 +8,7 @@ const MyOrders = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [canceling, setCanceling] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -19,6 +20,7 @@ const MyOrders = () => {
 
   const fetchOrders = async () => {
     try {
+      setLoading(true);
       const response = await ordersAPI.getMyOrders();
       console.log('📦 Orders:', response.data);
       setOrders(response.data);
@@ -30,16 +32,31 @@ const MyOrders = () => {
   };
 
   const handleCancelOrder = async (orderId) => {
-    const isConfirm = window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này không?");
+    const isConfirm = window.confirm(
+      "⚠️ Bạn có chắc chắn muốn hủy đơn hàng này?\n\n" +
+      "Số lượng sản phẩm sẽ được hoàn trả về kho."
+    );
+    
     if (!isConfirm) return;
 
+    setCanceling(true);
     try {
-      await ordersAPI.cancelOrder(orderId); 
-      alert("Đã hủy đơn hàng thành công!");
-      fetchOrders();
+      console.log('🚫 Canceling order:', orderId);
+      const response = await ordersAPI.cancelOrder(orderId);
+      console.log('✅ Cancel response:', response.data);
+      
+      alert("✅ Đã hủy đơn hàng thành công! Số lượng sản phẩm đã được hoàn trả.");
+      
+      // ✅ CRITICAL: Reload trang để cập nhật số lượng sản phẩm
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
     } catch (error) {
-      console.error(error);
+      console.error('❌ Cancel error:', error);
       alert(error.response?.data?.message || "Có lỗi xảy ra khi hủy đơn hàng.");
+    } finally {
+      setCanceling(false);
     }
   };
 
@@ -152,6 +169,15 @@ const MyOrders = () => {
           Đơn hàng của tôi
         </h1>
 
+        {canceling && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-xl text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+              <p className="text-gray-700 font-semibold">Đang hủy đơn hàng...</p>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-6">
           {orders.map((order) => (
             <div key={order._id} className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow">
@@ -251,8 +277,19 @@ const MyOrders = () => {
                   {order.orderStatus === 'Đang xử lý' && (
                     <button
                       onClick={() => handleCancelOrder(order._id)}
-                      className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors">
-                      Hủy đơn hàng
+                      disabled={canceling}
+                      className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                      {canceling ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Đang hủy...
+                        </>
+                      ) : (
+                        <>
+                          <FaTimesCircle />
+                          Hủy đơn hàng
+                        </>
+                      )}
                     </button>
                   )}
                   
