@@ -1,25 +1,49 @@
-
-
 import Order from '../models/orderModel.js';
 import Customer from '../models/customerModel.js';
-import Product from '../models/productModel.js'; // 1. THÊM IMPORT NÀY
+import Product from '../models/productModel.js';
 
-// Tạo đơn hàng mới
+// ✅ TẠO ĐƠN HÀNG - FIXED STOCK COMPLETELY
 const addOrderItems = async (req, res) => {
     const { shippingAddress, paymentMethod, totalPrice, bankTransferInfo } = req.body;
     
-    const customer = await Customer.findById(req.user._id);
-    const cartItems = customer.cart;
+    try {
+        console.log('🛒 Creating order for user:', req.user._id);
+        
+        const customer = await Customer.findById(req.user._id);
+        const cartItems = customer.cart;
 
-    if(cartItems && cartItems.length === 0){
-        res.status(400);
-        throw new Error('Không có sản phẩm nào trong giỏ hàng');
-    } else {
+        if (!cartItems || cartItems.length === 0) {
+            res.status(400);
+            throw new Error('Không có sản phẩm nào trong giỏ hàng');
+        }
+
+        console.log('📦 Cart items:', cartItems.length);
+
+        // ✅ BƯỚC 1: KIỂM TRA TỒN KHO TRƯỚC
+        for (const item of cartItems) {
+            const product = await Product.findById(item.product);
+            
+            if (!product) {
+                res.status(404);
+                throw new Error(`Sản phẩm ${item.name} không tồn tại`);
+            }
+            
+            console.log(`📊 Product: ${product.name} - Stock: ${product.countInStock} - Need: ${item.quantity}`);
+            
+            if (product.countInStock < item.quantity) {
+                res.status(400);
+                throw new Error(`Sản phẩm ${product.name} chỉ còn ${product.countInStock} sản phẩm`);
+            }
+        }
+
+        // ✅ BƯỚC 2: TẠO ĐƠN HÀNG
         const order = new Order({
-            orderItems: cartItems.map((item) =>({
-                ...item,
+            orderItems: cartItems.map((item) => ({
+                name: item.name,
+                quantity: item.quantity,
+                image: item.image,
+                price: item.price,
                 product: item.product,
-                _id: undefined,
             })),
             user: req.user._id,
             shippingAddress,
@@ -31,20 +55,51 @@ const addOrderItems = async (req, res) => {
         });
 
         const createdOrder = await order.save();
+        console.log('✅ Order created:', createdOrder._id);
 
-        // Duyệt qua từng sản phẩm trong giỏ để trừ số lượng
+        // ✅ BƯỚC 3: GIẢM SỐ LƯỢNG TỒN KHO - QUAN TRỌNG
+        console.log('📉 Decreasing stock...');
+        
         for (const item of cartItems) {
             const product = await Product.findById(item.product);
+            
             if (product) {
-                // Trừ số lượng tồn kho
-                product.countInStock = product.countInStock - item.quantity;
+                const oldStock = product.countInStock;
+                const newStock = oldStock - item.quantity;
+                
+                console.log(`   → ${product.name}:`);
+                console.log(`     • Old stock: ${oldStock}`);
+                console.log(`     • Sold: ${item.quantity}`);
+                console.log(`     • New stock: ${newStock}`);
+                
+                // ✅ CẬP NHẬT TRỰC TIẾP VÀ LƯU
+                product.countInStock = Math.max(0, newStock);
                 await product.save();
+                
+                console.log(`     ✅ Updated to: ${product.countInStock}`);
+                
+                // ✅ VERIFY LẠI SAU KHI LƯU
+                const verifyProduct = await Product.findById(item.product);
+                console.log(`     ✓ Verified stock in DB: ${verifyProduct.countInStock}`);
+            } else {
+                console.warn(`⚠️ Product not found: ${item.product}`);
             }
         }
+
+        // ✅ BƯỚC 4: XÓA GIỎ HÀNG
         customer.cart = [];
         await customer.save();
+        console.log('✅ Cart cleared for user:', customer._id);
 
+        console.log('🎉 Order completed successfully!');
         res.status(201).json(createdOrder);
+        
+    } catch (error) {
+        console.error('❌ CREATE ORDER ERROR:', error.message);
+        console.error('❌ Stack:', error.stack);
+        res.status(error.status || 500).json({ 
+            message: error.message || 'Lỗi khi tạo đơn hàng' 
+        });
     }
 };
 
@@ -73,7 +128,6 @@ const updatePaymentStatus = async (req, res) => {
   }
 };
 
-// Lấy các đơn hàng của người dùng đã đăng nhập
 const getMyOrders = async (req, res) => {
   const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
   res.json(orders);
@@ -99,7 +153,6 @@ const getOrders = async (req, res) => {
   }
 };
 
-// Cập nhật trạng thái đơn hàng
 const updateOrderStatus = async (req, res) => {
   const { orderStatus } = req.body;
   const order = await Order.findById(req.params.id);
@@ -166,7 +219,6 @@ const deleteOrder = async (req, res) => {
   }
 };
 
-// Thống kê doanh thu theo thời gian
 const getRevenueStats = async (req, res) => {
   try {
     const { period = 'month' } = req.query;
@@ -217,7 +269,6 @@ const getRevenueStats = async (req, res) => {
   }
 };
 
-// Thống kê khách hàng mua nhiều nhất
 const getTopCustomers = async (req, res) => {
   try {
     const topCustomers = await Order.aggregate([

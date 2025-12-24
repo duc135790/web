@@ -240,13 +240,14 @@ const updateUserProfile = async (req, res, next) => {
             throw new Error('Không tìm thấy người dùng');
         }
 
-        // ✅ Nếu có đổi mật khẩu, phải nhập mật khẩu cũ
+        // ✅ KIỂM TRA: Nếu có đổi mật khẩu
         if (req.body.newPassword) {
             console.log('🔐 Attempting password change');
             
+            // ✅ BẮT BUỘC phải có mật khẩu cũ
             if (!req.body.currentPassword) {
                 res.status(400);
-                throw new Error('Vui lòng nhập mật khẩu cũ');
+                throw new Error('Vui lòng nhập mật khẩu cũ để đổi mật khẩu');
             }
 
             // ✅ KIỂM TRA MẬT KHẨU CŨ
@@ -264,11 +265,12 @@ const updateUserProfile = async (req, res, next) => {
                 throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự');
             }
 
+            // ✅ Lưu mật khẩu mới
             customer.password = req.body.newPassword;
             console.log('✅ Password will be updated');
         }
 
-        // ✅ Cập nhật thông tin khác
+        // ✅ Cập nhật thông tin khác (không cần mật khẩu)
         if (req.body.name) {
             customer.name = req.body.name;
         }

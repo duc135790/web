@@ -4,7 +4,7 @@ import { customersAPI } from '../utils/api';
 import { FaUser, FaEnvelope, FaPhone, FaLock, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [editing, setEditing] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -19,15 +19,25 @@ const Profile = () => {
     confirmPassword: ''
   });
 
+  // ✅ Track original data để so sánh
+  const [originalData, setOriginalData] = useState({
+    name: '',
+    phone: ''
+  });
+
   useEffect(() => {
     if (user) {
-      setFormData({
+      const userData = {
         name: user.name || '',
-        phone: user.phone || '',
+        phone: user.phone || ''
+      };
+      setFormData({
+        ...userData,
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
+      setOriginalData(userData);
     }
   }, [user]);
 
@@ -43,7 +53,20 @@ const Profile = () => {
     setSuccess('');
 
     try {
-      // ✅ VALIDATE
+      // ✅ KIỂM TRA XEM CÓ THAY ĐỔI GÌ KHÔNG
+      const hasInfoChange = 
+        formData.name !== originalData.name || 
+        formData.phone !== originalData.phone;
+      
+      const hasPasswordChange = changingPassword && formData.newPassword;
+
+      if (!hasInfoChange && !hasPasswordChange) {
+        setError('Bạn chưa thay đổi thông tin gì');
+        setLoading(false);
+        return;
+      }
+
+      // ✅ VALIDATE PASSWORD
       if (changingPassword) {
         if (!formData.currentPassword) {
           throw new Error('Vui lòng nhập mật khẩu cũ');
@@ -60,7 +83,7 @@ const Profile = () => {
       }
 
       // ✅ VALIDATE PHONE
-      if (formData.phone) {
+      if (hasInfoChange && formData.phone) {
         const phoneRegex = /^0\d{9}$/;
         if (!phoneRegex.test(formData.phone)) {
           throw new Error('Số điện thoại không hợp lệ (10 số, bắt đầu bằng 0)');
@@ -68,13 +91,16 @@ const Profile = () => {
       }
 
       // ✅ CHUẨN BỊ DATA
-      const updateData = {
-        name: formData.name,
-        phone: formData.phone
-      };
+      const updateData = {};
+      
+      // Chỉ gửi những field đã thay đổi
+      if (hasInfoChange) {
+        updateData.name = formData.name;
+        updateData.phone = formData.phone;
+      }
 
-      // ✅ QUAN TRỌNG: Chỉ gửi password khi đang đổi mật khẩu
-      if (changingPassword) {
+      // Chỉ gửi password khi đang đổi mật khẩu
+      if (hasPasswordChange) {
         updateData.currentPassword = formData.currentPassword;
         updateData.newPassword = formData.newPassword;
       }
@@ -96,16 +122,29 @@ const Profile = () => {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       localStorage.setItem('token', response.data.token);
 
-      // ✅ RELOAD PAGE để update context
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-
-      setSuccess('✅ Cập nhật thông tin thành công! Đang tải lại trang...');
-      setEditing(false);
-      setChangingPassword(false);
+      // ✅ CHỈ RELOAD KHI ĐỔI MẬT KHẨU
+      if (hasPasswordChange) {
+        setSuccess('✅ Đổi mật khẩu thành công! Đang đăng xuất để đăng nhập lại...');
+        setTimeout(() => {
+          logout();
+          window.location.href = '/login';
+        }, 2000);
+      } else {
+        // Không reload, chỉ cập nhật state
+        setSuccess('✅ Cập nhật thông tin thành công!');
+        setOriginalData({
+          name: updatedUser.name,
+          phone: updatedUser.phone
+        });
+        setEditing(false);
+        
+        // Reload page để update context
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      }
       
-      // Reset password fields
+      setChangingPassword(false);
       setFormData(prev => ({
         ...prev,
         currentPassword: '',
@@ -125,9 +164,10 @@ const Profile = () => {
     setEditing(false);
     setChangingPassword(false);
     setError('');
+    setSuccess('');
     setFormData({
-      name: user?.name || '',
-      phone: user?.phone || '',
+      name: originalData.name,
+      phone: originalData.phone,
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''
@@ -148,7 +188,7 @@ const Profile = () => {
         <h1 className="text-3xl font-bold mb-8 text-gray-800">Thông tin tài khoản</h1>
 
         {success && (
-          <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded mb-6 animate-pulse">
+          <div className="bg-green-50 border-l-4 border-green-500 text-green-700 p-4 rounded mb-6">
             {success}
           </div>
         )}
@@ -223,7 +263,6 @@ const Profile = () => {
                     onClick={() => {
                       setChangingPassword(!changingPassword);
                       if (changingPassword) {
-                        // Reset password fields khi tắt
                         setFormData(prev => ({
                           ...prev,
                           currentPassword: '',
@@ -250,6 +289,7 @@ const Profile = () => {
                         name="currentPassword"
                         value={formData.currentPassword}
                         onChange={handleChange}
+                        required={changingPassword}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Nhập mật khẩu hiện tại"
                       />
@@ -265,6 +305,7 @@ const Profile = () => {
                         name="newPassword"
                         value={formData.newPassword}
                         onChange={handleChange}
+                        required={changingPassword}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)"
                       />
@@ -280,9 +321,14 @@ const Profile = () => {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleChange}
+                        required={changingPassword}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="Nhập lại mật khẩu mới"
                       />
+                    </div>
+
+                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-sm text-yellow-800">
+                      <strong>⚠️ Lưu ý:</strong> Sau khi đổi mật khẩu, bạn sẽ được đăng xuất và cần đăng nhập lại.
                     </div>
                   </div>
                 )}
@@ -333,13 +379,6 @@ const Profile = () => {
             </div>
           </div>
         </form>
-
-        {/* Info Box */}
-        <div className="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-          <p className="text-sm text-yellow-800">
-            <strong>Lưu ý:</strong> Khi đổi mật khẩu, trang sẽ tự động tải lại để cập nhật thông tin.
-          </p>
-        </div>
       </div>
     </div>
   );
