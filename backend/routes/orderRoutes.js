@@ -1,4 +1,4 @@
-// backend/routes/orderRoutes.js - FIXED
+// backend/routes/orderRoutes.js - WITH CANCEL ROUTE
 import express from 'express';
 const router = express.Router();
 import { 
@@ -12,7 +12,8 @@ import {
   getRevenueStats,
   getTopCustomers,
   getOrdersOverview,
-  updatePaymentStatus // ✅ THÊM
+  updatePaymentStatus,
+  cancelOrder  // ✅ IMPORT cancelOrder
 } from '../controllers/orderController.js';
 import { protect, admin } from '../middleware/authMiddleware.js';
 
@@ -30,9 +31,10 @@ router.get('/myorders', protect, getMyOrders);
 router.get('/:id', protect, getOrderById);
 router.put('/:id/status', protect, admin, updateOrderStatus);
 router.put('/:id/deliver', protect, admin, updateOrderToDelivered);
-
-// ✅ THÊM ROUTE CẬP NHẬT THANH TOÁN
 router.put('/:id/payment', protect, admin, updatePaymentStatus);
+
+// ✅ NEW: Route hủy đơn hàng (User hoặc Admin)
+router.put('/:id/cancel', protect, cancelOrder);
 
 router.delete('/:id', protect, deleteOrder);
 

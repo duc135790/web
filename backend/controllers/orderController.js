@@ -1,4 +1,4 @@
-// backend/controllers/orderController.js - COMPLETELY FIXED
+// backend/controllers/orderController.js - WITH CANCEL ORDER FUNCTION
 
 import Order from '../models/orderModel.js';
 import Customer from '../models/customerModel.js';
@@ -25,7 +25,6 @@ const addOrderItems = async (req, res) => {
         const productUpdates = [];
         
         for (const item of cartItems) {
-            // ✅ CRITICAL: Luôn fetch product mới nhất từ DB
             const product = await Product.findById(item.product);
             
             if (!product) {
@@ -37,7 +36,6 @@ const addOrderItems = async (req, res) => {
             console.log(`   Current DB stock: ${product.countInStock}`);
             console.log(`   Requested quantity: ${item.quantity}`);
             
-            // ✅ Kiểm tra tồn kho thực tế từ DB
             if (product.countInStock < item.quantity) {
                 res.status(400);
                 throw new Error(`Sản phẩm ${product.name} chỉ còn ${product.countInStock} sản phẩm trong kho`);
@@ -83,15 +81,14 @@ const addOrderItems = async (req, res) => {
                 console.log(`   Quantity sold: ${update.quantity}`);
                 console.log(`   Expected new stock: ${update.newStock}`);
                 
-                // ✅ CRITICAL FIX: Sử dụng findByIdAndUpdate với atomic $inc
                 const updatedProduct = await Product.findByIdAndUpdate(
                     update.productId,
                     { 
                         $inc: { countInStock: -update.quantity }
                     },
                     { 
-                        new: true,  // Trả về document sau khi update
-                        runValidators: true  // Chạy validators
+                        new: true,
+                        runValidators: true
                     }
                 );
                 
@@ -103,11 +100,9 @@ const addOrderItems = async (req, res) => {
                 console.log(`   ✅ Updated successfully!`);
                 console.log(`   New stock in DB: ${updatedProduct.countInStock}`);
                 
-                // ✅ VERIFY: Đọc lại từ DB để đảm bảo
                 const verifyProduct = await Product.findById(update.productId).select('name countInStock');
                 console.log(`   ✓ VERIFIED in database: ${verifyProduct.countInStock}`);
                 
-                // ✅ CRITICAL: Log nếu có mismatch
                 if (verifyProduct.countInStock !== update.newStock) {
                     console.error(`   ⚠️ MISMATCH DETECTED!`);
                     console.error(`      Expected: ${update.newStock}`);
@@ -117,7 +112,6 @@ const addOrderItems = async (req, res) => {
                 
             } catch (updateError) {
                 console.error(`❌ Error updating product ${update.productName}:`, updateError.message);
-                // ⚠️ Log nhưng không throw - tiếp tục với products khác
             }
         }
 
@@ -126,7 +120,7 @@ const addOrderItems = async (req, res) => {
         await customer.save();
         console.log('✅ Cart cleared for user:', customer._id);
 
-        // ✅ BƯỚC 5: FINAL VERIFICATION - Log tất cả products đã update
+        // ✅ BƯỚC 5: FINAL VERIFICATION
         console.log('\n📊 FINAL VERIFICATION:');
         for (const update of productUpdates) {
             const finalProduct = await Product.findById(update.productId).select('name countInStock');
@@ -134,7 +128,7 @@ const addOrderItems = async (req, res) => {
         }
 
         console.log('\n🎉 Order completed successfully!');
-        console.log('=' .repeat(60));
+        console.log('='.repeat(60));
         
         res.status(201).json(createdOrder);
         
@@ -143,6 +137,133 @@ const addOrderItems = async (req, res) => {
         console.error('❌ Stack:', error.stack);
         res.status(error.status || 500).json({ 
             message: error.message || 'Lỗi khi tạo đơn hàng' 
+        });
+    }
+};
+
+// ✅ HỦY ĐƠN HÀNG VÀ HOÀN TRẢ TỒN KHO
+const cancelOrder = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        console.log('\n🚫 CANCEL ORDER REQUEST:', orderId);
+        
+        const order = await Order.findById(orderId);
+        
+        if (!order) {
+            res.status(404);
+            throw new Error('Không tìm thấy đơn hàng');
+        }
+        
+        // ✅ KIỂM TRA QUYỀN: Chỉ user sở hữu hoặc admin mới được hủy
+        if (!req.user.isAdmin && order.user.toString() !== req.user._id.toString()) {
+            res.status(403);
+            throw new Error('Bạn không có quyền hủy đơn hàng này');
+        }
+        
+        // ✅ CHỈ CHO PHÉP HỦY ĐƠN Ở TRẠNG THÁI "Đang xử lý"
+        if (order.orderStatus !== 'Đang xử lý') {
+            res.status(400);
+            throw new Error(`Không thể hủy đơn hàng ở trạng thái "${order.orderStatus}". Chỉ có thể hủy đơn "Đang xử lý".`);
+        }
+        
+        console.log('📦 Order items to restore:', order.orderItems.length);
+        
+        // ✅ HOÀN TRẢ TỒN KHO CHO TỪNG SẢN PHẨM
+        const restoreResults = [];
+        
+        for (const item of order.orderItems) {
+            try {
+                console.log(`\n🔄 Restoring ${item.name}...`);
+                console.log(`   Product ID: ${item.product}`);
+                console.log(`   Quantity to restore: ${item.quantity}`);
+                
+                // ✅ LẤY THÔNG TIN SẢN PHẨM HIỆN TẠI
+                const product = await Product.findById(item.product);
+                
+                if (!product) {
+                    console.error(`   ⚠️ Product not found: ${item.product}`);
+                    restoreResults.push({
+                        productId: item.product,
+                        productName: item.name,
+                        status: 'not_found',
+                        message: 'Sản phẩm không tồn tại'
+                    });
+                    continue;
+                }
+                
+                const oldStock = product.countInStock;
+                const newStock = oldStock + item.quantity;
+                
+                console.log(`   Old stock: ${oldStock}`);
+                console.log(`   Restoring: +${item.quantity}`);
+                console.log(`   Expected new stock: ${newStock}`);
+                
+                // ✅ HOÀN TRẢ SỐ LƯỢNG - ATOMIC OPERATION
+                const updatedProduct = await Product.findByIdAndUpdate(
+                    item.product,
+                    { 
+                        $inc: { countInStock: item.quantity }
+                    },
+                    { 
+                        new: true,
+                        runValidators: true
+                    }
+                );
+                
+                console.log(`   ✅ Restored successfully!`);
+                console.log(`   New stock in DB: ${updatedProduct.countInStock}`);
+                
+                // ✅ VERIFY
+                const verifyProduct = await Product.findById(item.product).select('name countInStock');
+                console.log(`   ✓ VERIFIED: ${verifyProduct.countInStock}`);
+                
+                restoreResults.push({
+                    productId: item.product,
+                    productName: item.name,
+                    status: 'success',
+                    oldStock: oldStock,
+                    restoredQuantity: item.quantity,
+                    newStock: verifyProduct.countInStock
+                });
+                
+            } catch (restoreError) {
+                console.error(`   ❌ Error restoring ${item.name}:`, restoreError.message);
+                restoreResults.push({
+                    productId: item.product,
+                    productName: item.name,
+                    status: 'error',
+                    message: restoreError.message
+                });
+            }
+        }
+        
+        // ✅ CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
+        order.orderStatus = 'Đã hủy';
+        await order.save();
+        
+        console.log('\n📊 RESTORE SUMMARY:');
+        restoreResults.forEach(result => {
+            if (result.status === 'success') {
+                console.log(`   ✅ ${result.productName}: ${result.oldStock} → ${result.newStock} (+${result.restoredQuantity})`);
+            } else {
+                console.log(`   ❌ ${result.productName}: ${result.status} - ${result.message}`);
+            }
+        });
+        
+        console.log('\n🎉 Order cancelled successfully!');
+        console.log('='.repeat(60));
+        
+        res.json({
+            message: 'Đã hủy đơn hàng và hoàn trả số lượng sản phẩm thành công',
+            order: order,
+            restoreResults: restoreResults
+        });
+        
+    } catch (error) {
+        console.error('❌ CANCEL ORDER ERROR:', error.message);
+        console.error('❌ Stack:', error.stack);
+        res.status(error.status || 500).json({ 
+            message: error.message || 'Lỗi khi hủy đơn hàng' 
         });
     }
 };
@@ -398,5 +519,6 @@ export {
   getRevenueStats,
   getTopCustomers,
   getOrdersOverview,
-  updatePaymentStatus 
+  updatePaymentStatus,
+  cancelOrder  // ✅ NEW: Export cancelOrder
 };
