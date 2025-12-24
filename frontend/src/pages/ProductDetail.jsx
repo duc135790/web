@@ -1,7 +1,7 @@
-// frontend/src/pages/ProductDetail.jsx - WITH REVIEWS
+// frontend/src/pages/ProductDetail.jsx - FIXED STOCK UPDATE
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { productsAPI, cartAPI } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -13,6 +13,7 @@ import {
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,17 +28,21 @@ const ProductDetail = () => {
   const [reviewData, setReviewData] = useState({ rating: 5, comment: '' });
   const [submittingReview, setSubmittingReview] = useState(false);
 
+  // ✅ FIX: Reload khi quay lại trang
   useEffect(() => {
+    console.log('🔄 ProductDetail loaded/revisited');
     fetchProduct();
     fetchReviews();
-  }, [id]);
+  }, [id, location.key]); // ✅ Thêm location.key
 
   const fetchProduct = async () => {
     try {
+      console.log('📡 Fetching fresh product data...');
       const response = await productsAPI.getProductById(id);
+      console.log('✅ Product loaded:', response.data.name, 'Stock:', response.data.countInStock);
       setProduct(response.data);
     } catch (error) {
-      console.error('Error fetching product:', error);
+      console.error('❌ Error fetching product:', error);
     } finally {
       setLoading(false);
     }
@@ -97,7 +102,14 @@ const ProductDetail = () => {
     setAddingToCart(true);
 
     try {
+      console.log('🛒 Adding to cart:', id, 'Quantity:', quantity);
       await cartAPI.addToCart(id, quantity);
+      
+      console.log('✅ Added to cart, refreshing product...');
+      
+      // ✅ CRITICAL: Reload ngay để cập nhật số lượng
+      await fetchProduct();
+      
       setSuccess('Đã thêm vào giỏ hàng!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
@@ -187,7 +199,7 @@ const ProductDetail = () => {
                 <div className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
                   product.countInStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }`}>
-                  {product.countInStock > 0 ? '✓ Còn hàng' : '✗ Hết hàng'}
+                  {product.countInStock > 0 ? `✓ Còn ${product.countInStock} sản phẩm` : '✗ Hết hàng'}
                 </div>
               </div>
 

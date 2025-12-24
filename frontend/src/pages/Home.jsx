@@ -10,7 +10,7 @@ import { cartAPI } from '../utils/api';
 const Home = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // ✅ Thêm location để track navigation
+  const location = useLocation();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [newProducts, setNewProducts] = useState([]);
@@ -48,20 +48,49 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [slides.length]);
 
-  // ✅ FIX: Thêm location vào dependency để reload khi quay lại trang
+  // ✅ CRITICAL FIX: Reload khi quay lại trang
   useEffect(() => {
+    console.log('🏠 Home page mounted/updated');
     fetchProducts();
-  }, [location.pathname]); // Reload khi pathname thay đổi
+  }, [location.key]); // ✅ Thêm location.key để reload khi navigate back
+
+  // ✅ CRITICAL FIX: Thêm visibility change listener
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👀 Page became visible, reloading products...');
+        fetchProducts();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
+  // ✅ CRITICAL FIX: Thêm focus listener
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🎯 Window focused, reloading products...');
+      fetchProducts();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      // ✅ CRITICAL: Thêm timestamp để bypass cache
+      console.log('📦 Fetching products with timestamp:', Date.now());
+      
+      // ✅ CRITICAL: Force reload với timestamp
       const { data } = await axios.get(`http://localhost:5000/api/products?_t=${Date.now()}`);
+      
+      console.log('✅ Products loaded:', data.length);
       setFeaturedProducts(data.slice(0, 4));
       setNewProducts(data.slice(0, 8));
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Error fetching products:', error);
     } finally {
       setLoading(false);
     }
@@ -79,9 +108,11 @@ const Home = () => {
     setAddingToCart(prev => ({ ...prev, [productId]: true }));
 
     try {
+      console.log('🛒 Adding to cart:', productId);
       await cartAPI.addToCart(productId, 1);
       
-      // ✅ CRITICAL: Reload products sau khi thêm giỏ hàng
+      // ✅ CRITICAL: Reload ngay lập tức
+      console.log('🔄 Reloading products after add to cart...');
       await fetchProducts();
       
       alert('✅ Đã thêm vào giỏ hàng!');
@@ -126,9 +157,9 @@ const Home = () => {
             <div className="text-[#d72e2e] font-bold text-lg mb-0.5">
               {product.price?.toLocaleString()}đ
             </div>
-            <div className={`text-[11px] mb-3 ${isOutOfStock ? 'text-red-600 font-bold' : product.countInStock < 10 ? 'text-orange-600' : 'text-gray-500'}`}>
-              {isOutOfStock ? '❌ Hết hàng' : `Còn: ${product.countInStock} sản phẩm`}
-              {!isOutOfStock && product.countInStock < 10 && ' ⚠️'}
+            <div className={`text-[11px] mb-3 ${isOutOfStock ? 'text-red-600 font-bold' : product.countInStock < 10 ? 'text-orange-600' : 'text-green-600'}`}>
+              {isOutOfStock ? 'Hết hàng' : `Còn: ${product.countInStock} sản phẩm`}
+              {!isOutOfStock && product.countInStock < 10 && ' '}
             </div>
           </div>
           

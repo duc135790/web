@@ -1,3 +1,5 @@
+// frontend/src/pages/Products.jsx - FIXED: Auto reload when return to page
+
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { productsAPI, cartAPI } from '../utils/api';
@@ -20,15 +22,42 @@ const Products = () => {
   const [sortBy, setSortBy] = useState('newest');
   const [addingToCart, setAddingToCart] = useState({});
 
-  // ✅ FIX: Reload khi location thay đổi
+  // ✅ CRITICAL FIX: Reload khi quay lại trang
   useEffect(() => {
+    console.log('🔄 Products page mounted/updated');
     fetchProducts();
     setFilter(categoryParam);
-  }, [categoryParam, keywordParam, sortBy, location.pathname]);
+  }, [categoryParam, keywordParam, sortBy]);
+
+  // ✅ THÊM: Reload khi focus vào window (quay lại tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('👁️ Window focused - reloading products');
+      fetchProducts();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [categoryParam, keywordParam, sortBy]);
+
+  // ✅ THÊM: Reload khi visible (quay lại trang từ tab khác)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Page visible - reloading products');
+        fetchProducts();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [categoryParam, keywordParam, sortBy]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
+      console.log('📦 Fetching products with timestamp:', Date.now());
+      
       // ✅ CRITICAL: Thêm timestamp để bypass cache
       const response = await productsAPI.getProducts(keywordParam, categoryParam);
       let sortedProducts = [...response.data];
@@ -50,9 +79,10 @@ const Products = () => {
           break;
       }
       
+      console.log(`✅ Loaded ${sortedProducts.length} products`);
       setProducts(sortedProducts);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('❌ Error fetching products:', error);
     } finally {
       setLoading(false);
     }
@@ -128,6 +158,11 @@ const Products = () => {
             {keywordParam ? `Kết quả tìm kiếm: "${keywordParam}"` : 'Sách Hay Chính Hãng'}
         </h1>
         <p className="text-gray-600">Tìm thấy {products.length} sản phẩm</p>
+        
+        {/* ✅ THÊM: Hiển thị timestamp để check reload */}
+        <p className="text-xs text-gray-400 mt-1">
+          Cập nhật: {new Date().toLocaleTimeString('vi-VN')}
+        </p>
       </div>
 
       <div className="container mx-auto px-4 py-5">
@@ -164,6 +199,15 @@ const Products = () => {
                 <option value="name_asc">Tên A-Z</option>
               </select>
             </div>
+
+            {/* ✅ THÊM: Nút refresh thủ công */}
+            <button
+              onClick={() => fetchProducts()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+              title="Tải lại danh sách"
+            >
+              🔄 Làm mới
+            </button>
           </div>
 
           {(keywordParam || categoryParam) && (
@@ -244,8 +288,9 @@ const Products = () => {
                       {product.price?.toLocaleString()}₫
                     </div>
                     
+                    {/* ✅ CRITICAL: Hiển thị số lượng realtime */}
                     <div className={`text-xs mb-3 font-semibold ${isOutOfStock ? 'text-red-600' : product.countInStock < 10 ? 'text-orange-600' : 'text-green-600'}`}>
-                      {isOutOfStock ? '❌ Hết hàng' : `Còn: ${product.stock || product.countInStock} sản phẩm`}
+                      {isOutOfStock ? '❌ Hết hàng' : `Còn: ${product.countInStock} sản phẩm`}
                       {!isOutOfStock && product.countInStock < 10 && ' ⚠️'}
                     </div>
 
